@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Wolfix - AI Diagnostic Toolkit - Launcher Linux
+# Wolfix - AI Diagnostic Toolkit - Launcher Linux/macOS
 # Configura l'ambiente dalla chiavetta USB e lancia Claude Code.
 #
 
@@ -17,13 +17,33 @@ CYAN='\033[0;36m'
 GRAY='\033[0;37m'
 NC='\033[0m'
 
-# === DETECT ARCHITETTURA ===
+# === DETECT OS E ARCHITETTURA ===
+OS_TYPE=$(uname -s)
 ARCH=$(uname -m)
-case "$ARCH" in
-    x86_64)  NODE_DIR="$USB_ROOT/runtime/node-linux-x64" ;;
-    aarch64) NODE_DIR="$USB_ROOT/runtime/node-linux-arm64" ;;
+
+case "$OS_TYPE" in
+    Linux)
+        case "$ARCH" in
+            x86_64)  NODE_DIR="$USB_ROOT/runtime/node-linux-x64" ;;
+            aarch64) NODE_DIR="$USB_ROOT/runtime/node-linux-arm64" ;;
+            *)
+                echo -e "${RED}[ERROR] Unsupported architecture: $ARCH${NC}"
+                exit 1
+                ;;
+        esac
+        ;;
+    Darwin)
+        case "$ARCH" in
+            x86_64)  NODE_DIR="$USB_ROOT/runtime/node-darwin-x64" ;;
+            arm64)   NODE_DIR="$USB_ROOT/runtime/node-darwin-arm64" ;;
+            *)
+                echo -e "${RED}[ERROR] Unsupported architecture: $ARCH${NC}"
+                exit 1
+                ;;
+        esac
+        ;;
     *)
-        echo -e "${RED}[ERRORE] Architettura non supportata: $ARCH${NC}"
+        echo -e "${RED}[ERROR] Unsupported OS: $OS_TYPE${NC}"
         exit 1
         ;;
 esac
@@ -66,9 +86,17 @@ if ! command -v claude &>/dev/null; then
 fi
 
 # === DETECT SISTEMA ===
-OS_NAME=$(cat /etc/os-release 2>/dev/null | grep "^PRETTY_NAME=" | cut -d'"' -f2 || uname -s)
-KERNEL=$(uname -r)
-RAM_GB=$(free -g 2>/dev/null | awk '/Mem:/{print $2}' || echo "N/A")
+if [ "$OS_TYPE" = "Darwin" ]; then
+    OS_NAME=$(sw_vers -productName 2>/dev/null || echo "macOS")
+    OS_VERSION=$(sw_vers -productVersion 2>/dev/null || echo "unknown")
+    OS_NAME="$OS_NAME $OS_VERSION"
+    KERNEL=$(uname -r)
+    RAM_GB=$(sysctl -n hw.memsize 2>/dev/null | awk '{printf "%.0f", $1/1073741824}' || echo "N/A")
+else
+    OS_NAME=$(cat /etc/os-release 2>/dev/null | grep "^PRETTY_NAME=" | cut -d'"' -f2 || uname -s)
+    KERNEL=$(uname -r)
+    RAM_GB=$(free -g 2>/dev/null | awk '/Mem:/{print $2}' || echo "N/A")
+fi
 HOSTNAME_VAL=$(hostname)
 
 # === LANGUAGE ===
@@ -167,7 +195,26 @@ show_menu() {
 # === FUNZIONI ===
 do_diagnosi() {
     echo -e "${GREEN}${MSG_DIAGSTART}${NC}"
-    claude -p "Sei un esperto di diagnostica sistemi Linux. Questo sistema e':
+    if [ "$OS_TYPE" = "Darwin" ]; then
+        claude -p "You are a macOS diagnostic expert. This system is:
+- OS: $OS_NAME
+- Kernel: $KERNEL
+- RAM: ${RAM_GB} GB
+- Hostname: $HOSTNAME_VAL
+
+Run a complete diagnosis:
+1. Check critical services (launchctl list)
+2. Check disk space (df -h, diskutil list)
+3. Analyze RAM and CPU usage (vm_stat, top -l 1)
+4. Check system.log and unified log for errors (last 24h)
+5. Check network status (ifconfig, networksetup, DNS, routing)
+6. Check pending software updates (softwareupdate -l)
+7. Check Time Machine backup status
+8. Check startup items and launch agents/daemons
+
+For each problem: explain impact, propose fix, ask confirmation BEFORE applying."
+    else
+        claude -p "Sei un esperto di diagnostica sistemi Linux. Questo sistema e':
 - OS: $OS_NAME
 - Kernel: $KERNEL
 - RAM: ${RAM_GB} GB
@@ -184,6 +231,7 @@ Esegui una diagnosi completa:
 8. Controlla mount points e fstab
 
 Per ogni problema trovato: spiega l'impatto, proponi il fix, chiedi conferma PRIMA di eseguirlo."
+    fi
 }
 
 do_analizza_log() {
@@ -211,13 +259,17 @@ Problema: $problema
 }
 
 do_raccogli_dati() {
-    local script_path="$USB_ROOT/toolkit/scripts/collect-linux.sh"
+    if [ "$OS_TYPE" = "Darwin" ]; then
+        local script_path="$USB_ROOT/toolkit/scripts/collect-macos.sh"
+    else
+        local script_path="$USB_ROOT/toolkit/scripts/collect-linux.sh"
+    fi
     if [ -f "$script_path" ]; then
         chmod +x "$script_path" 2>/dev/null || true
         bash "$script_path" "$USB_ROOT/toolkit/logs"
         echo -e "${GREEN}${MSG_SAVED} $USB_ROOT/toolkit/logs${NC}"
     else
-        echo -e "${RED}[ERRORE] Script non trovato: $script_path${NC}"
+        echo -e "${RED}[ERROR] Script not found: $script_path${NC}"
     fi
 }
 
@@ -230,12 +282,20 @@ do_ssh_remoto() {
 
 do_diagnosi_rete() {
     echo -e "${GREEN}${MSG_NETSTART}${NC}"
-    claude -p "Diagnosi completa rete Linux: interfacce, IP, DNS, routing, porte in ascolto (ss/netstat), connessioni attive, firewall (iptables/nftables/firewalld), test connettivita'. Identifica problemi e proponi fix."
+    if [ "$OS_TYPE" = "Darwin" ]; then
+        claude -p "Complete macOS network diagnosis: interfaces (ifconfig), IP config, DNS (scutil --dns), routing (netstat -rn), listening ports (lsof -i -P), active connections, firewall (socketfilterfw), connectivity test. Identify problems and propose fixes."
+    else
+        claude -p "Diagnosi completa rete Linux: interfacce, IP, DNS, routing, porte in ascolto (ss/netstat), connessioni attive, firewall (iptables/nftables/firewalld), test connettivita'. Identifica problemi e proponi fix."
+    fi
 }
 
 do_analisi_sicurezza() {
     echo -e "${GREEN}${MSG_SECSTART}${NC}"
-    claude -p "Analisi sicurezza Linux: utenti/gruppi, sudoers, SUID/SGID, porte aperte, servizi esposti, SSH config, fail2ban, aggiornamenti sicurezza, permessi file sensibili (/etc/shadow, /etc/passwd), crontab sospetti, processi anomali. Segnala vulnerabilita' e proponi remediation."
+    if [ "$OS_TYPE" = "Darwin" ]; then
+        claude -p "macOS security analysis: users/groups (dscl), FileVault status, Gatekeeper, SIP (csrutil), firewall, SSH config, open ports, installed profiles (profiles list), suspicious launch agents/daemons, Keychain issues, software updates. Report vulnerabilities and propose remediation."
+    else
+        claude -p "Analisi sicurezza Linux: utenti/gruppi, sudoers, SUID/SGID, porte aperte, servizi esposti, SSH config, fail2ban, aggiornamenti sicurezza, permessi file sensibili (/etc/shadow, /etc/passwd), crontab sospetti, processi anomali. Segnala vulnerabilita' e proponi remediation."
+    fi
 }
 
 # === MAIN ===

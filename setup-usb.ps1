@@ -32,9 +32,9 @@ if (-not (Test-Path $UsbRoot)) {
 }
 
 $freeSpace = (Get-PSDrive $UsbDrive).Free
-$requiredSpace = 500MB
+$requiredSpace = 600MB
 if ($freeSpace -lt $requiredSpace) {
-    Write-Error "Spazio insufficiente. Servono almeno 500MB liberi. Disponibili: $([math]::Round($freeSpace / 1MB))MB"
+    Write-Error "Spazio insufficiente. Servono almeno 600MB liberi. Disponibili: $([math]::Round($freeSpace / 1MB))MB"
     exit 1
 }
 
@@ -44,11 +44,13 @@ Write-Host "Node.js version: $NodeVersion" -ForegroundColor Yellow
 Write-Host ""
 
 # --- Creazione struttura directory ---
-Write-Host "[1/6] Creazione struttura directory..." -ForegroundColor Green
+Write-Host "[1/8] Creazione struttura directory..." -ForegroundColor Green
 
 $directories = @(
     "runtime\node-win-x64",
     "runtime\node-linux-x64",
+    "runtime\node-darwin-x64",
+    "runtime\node-darwin-arm64",
     "claude-code",
     "config",
     "config\rules",
@@ -65,7 +67,7 @@ foreach ($dir in $directories) {
 }
 
 # --- Download Node.js Windows ---
-Write-Host "[2/6] Download Node.js $NodeVersion per Windows x64..." -ForegroundColor Green
+Write-Host "[2/8] Download Node.js $NodeVersion per Windows x64..." -ForegroundColor Green
 
 $nodeWinZip = Join-Path $env:TEMP "node-win-x64.zip"
 $nodeWinUrl = "https://nodejs.org/dist/v${NodeVersion}/node-v${NodeVersion}-win-x64.zip"
@@ -95,7 +97,7 @@ if (-not (Test-Path (Join-Path $nodeWinDest "node.exe"))) {
 }
 
 # --- Download Node.js Linux ---
-Write-Host "[3/6] Download Node.js $NodeVersion per Linux x64..." -ForegroundColor Green
+Write-Host "[3/8] Download Node.js $NodeVersion per Linux x64..." -ForegroundColor Green
 
 $nodeLinuxTar = Join-Path $env:TEMP "node-linux-x64.tar.xz"
 $nodeLinuxUrl = "https://nodejs.org/dist/v${NodeVersion}/node-v${NodeVersion}-linux-x64.tar.xz"
@@ -122,8 +124,60 @@ if (-not (Test-Path (Join-Path $nodeLinuxDest "bin"))) {
     Write-Host "  Gia' presente, skip." -ForegroundColor Yellow
 }
 
+# --- Download Node.js macOS x64 ---
+Write-Host "[4/8] Download Node.js $NodeVersion per macOS x64..." -ForegroundColor Green
+
+$nodeMacX64Tar = Join-Path $env:TEMP "node-mac-x64.tar.gz"
+$nodeMacX64Url = "https://nodejs.org/dist/v${NodeVersion}/node-v${NodeVersion}-darwin-x64.tar.gz"
+$nodeMacX64Dest = Join-Path $UsbRoot "runtime\node-darwin-x64"
+
+if (-not (Test-Path (Join-Path $nodeMacX64Dest "bin"))) {
+    Write-Host "  Scaricamento da $nodeMacX64Url ..."
+    $maxRetries = 2
+    for ($i = 1; $i -le $maxRetries; $i++) {
+        try {
+            Invoke-WebRequest -Uri $nodeMacX64Url -OutFile $nodeMacX64Tar -UseBasicParsing -TimeoutSec 120
+            break
+        } catch {
+            if ($i -eq $maxRetries) { throw }
+            Write-Host "[RETRY] Tentativo $i fallito, riprovo..." -ForegroundColor Yellow
+        }
+    }
+    Copy-Item $nodeMacX64Tar -Destination $nodeMacX64Dest -Force
+    Remove-Item $nodeMacX64Tar -Force -ErrorAction SilentlyContinue
+    Write-Host "  File scaricato in $nodeMacX64Dest" -ForegroundColor Green
+} else {
+    Write-Host "  Gia' presente, skip." -ForegroundColor Yellow
+}
+
+# --- Download Node.js macOS ARM64 ---
+Write-Host "[5/8] Download Node.js $NodeVersion per macOS ARM64..." -ForegroundColor Green
+
+$nodeMacArm64Tar = Join-Path $env:TEMP "node-mac-arm64.tar.gz"
+$nodeMacArm64Url = "https://nodejs.org/dist/v${NodeVersion}/node-v${NodeVersion}-darwin-arm64.tar.gz"
+$nodeMacArm64Dest = Join-Path $UsbRoot "runtime\node-darwin-arm64"
+
+if (-not (Test-Path (Join-Path $nodeMacArm64Dest "bin"))) {
+    Write-Host "  Scaricamento da $nodeMacArm64Url ..."
+    $maxRetries = 2
+    for ($i = 1; $i -le $maxRetries; $i++) {
+        try {
+            Invoke-WebRequest -Uri $nodeMacArm64Url -OutFile $nodeMacArm64Tar -UseBasicParsing -TimeoutSec 120
+            break
+        } catch {
+            if ($i -eq $maxRetries) { throw }
+            Write-Host "[RETRY] Tentativo $i fallito, riprovo..." -ForegroundColor Yellow
+        }
+    }
+    Copy-Item $nodeMacArm64Tar -Destination $nodeMacArm64Dest -Force
+    Remove-Item $nodeMacArm64Tar -Force -ErrorAction SilentlyContinue
+    Write-Host "  File scaricato in $nodeMacArm64Dest" -ForegroundColor Green
+} else {
+    Write-Host "  Gia' presente, skip." -ForegroundColor Yellow
+}
+
 # --- Installazione Claude Code ---
-Write-Host "[4/6] Installazione Claude Code..." -ForegroundColor Green
+Write-Host "[6/8] Installazione Claude Code..." -ForegroundColor Green
 
 $nodePath = Join-Path $UsbRoot "runtime\node-win-x64\node.exe"
 $npmPath = Join-Path $UsbRoot "runtime\node-win-x64\npm.cmd"
@@ -139,7 +193,7 @@ Write-Host "  Installazione @anthropic-ai/claude-code..."
 Write-Host "  OK" -ForegroundColor Green
 
 # --- Login Claude ---
-Write-Host "[5/6] Configurazione autenticazione..." -ForegroundColor Green
+Write-Host "[7/8] Configurazione autenticazione..." -ForegroundColor Green
 
 $env:CLAUDE_CONFIG_DIR = Join-Path $UsbRoot "config"
 $claudeBin = Join-Path $claudeCodeDir "bin\claude.cmd"
@@ -153,7 +207,7 @@ if (Test-Path $claudeBin) {
 }
 
 # --- Copia launcher e toolkit ---
-Write-Host "[6/6] Copia launcher e toolkit sulla chiavetta..." -ForegroundColor Green
+Write-Host "[8/8] Copia launcher e toolkit sulla chiavetta..." -ForegroundColor Green
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $filesToCopy = @(
@@ -186,14 +240,17 @@ Write-Host ""
 Write-Host "=== SETUP COMPLETATO ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Struttura chiavetta ${UsbDrive}:\" -ForegroundColor Yellow
-Write-Host "  runtime\         - Node.js portable (Win + Linux)"
+Write-Host "  runtime\         - Node.js portable (Win + Linux + macOS)"
 Write-Host "  claude-code\     - Claude Code CLI"
 Write-Host "  config\          - Configurazione e credenziali"
 Write-Host "  toolkit\         - Prompt diagnostici e script"
 Write-Host ""
+Write-Host "[NOTE] macOS: tar.gz files will be extracted automatically by launch.sh on first run." -ForegroundColor Gray
+Write-Host ""
 Write-Host "Per usare la chiavetta:" -ForegroundColor Yellow
 Write-Host "  Windows:  Doppio click su launch.bat (o launch.ps1)"
 Write-Host "  Linux:    bash launch.sh"
+Write-Host "  macOS:    bash launch.sh"
 Write-Host ""
 Write-Host "IMPORTANTE: La chiavetta contiene le tue credenziali." -ForegroundColor Red
 Write-Host "Considera di cifrarla con BitLocker o VeraCrypt." -ForegroundColor Red
