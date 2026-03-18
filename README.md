@@ -1,6 +1,6 @@
 # Wolfix >_ AI Problem Solver
 
-**Portable AI-powered diagnostic toolkit for Windows, Linux, and VMware systems.**
+**Portable AI-powered diagnostic toolkit for Windows, Linux, macOS, and VMware systems.**
 
 ---
 
@@ -11,7 +11,7 @@ Wolfix is a portable USB toolkit powered by [Claude Code](https://docs.anthropic
 ## Features
 
 - **Zero installation** -- runs entirely from USB, leaves no trace on the target system
-- **Multi-platform** -- supports Windows, Linux, ESXi, and VMware vCenter from a single drive
+- **Multi-platform** -- supports Windows, Linux, macOS (Intel and Apple Silicon), ESXi, and VMware vCenter from a single drive
 - **Interactive diagnostics** -- AI-driven analysis of services, disk, RAM, CPU, event logs, network, and updates
 - **Guided repair** -- proposes fixes with clear explanations and asks for confirmation before applying
 - **Log analysis** -- parses any log file to identify errors, anomalies, and patterns
@@ -28,6 +28,8 @@ Wolfix is a portable USB toolkit powered by [Claude Code](https://docs.anthropic
 | Windows Server | 2016, 2019, 2022, 2025 | Full diagnostic and repair |
 | Windows Server (legacy) | 2008, 2012 | Data collection only |
 | Linux | All major distributions | Full diagnostic and repair |
+| macOS (Intel) | 11+ (Big Sur and later) | Full diagnostic and repair |
+| macOS (Apple Silicon) | 11+ (Big Sur and later) | Full diagnostic and repair |
 | VMware ESXi | 6.x, 7.x, 8.x | Diagnostic and health check |
 | VMware vCenter | 6.x, 7.x, 8.x | Diagnostic and health check |
 
@@ -45,7 +47,7 @@ Wolfix is a portable USB toolkit powered by [Claude Code](https://docs.anthropic
 .\setup-usb.ps1 -UsbDrive E
 ```
 
-This downloads Node.js (Windows and Linux), installs Claude Code, and copies all toolkit files to the USB drive. You will be prompted to log in during setup.
+This downloads Node.js (Windows, Linux, and macOS), installs Claude Code, and copies all toolkit files to the USB drive. You will be prompted to log in during setup.
 
 ### Usage
 
@@ -54,6 +56,7 @@ Plug the USB drive into the target machine, then:
 - **Windows (cmd):** double-click `launch.bat`
 - **Windows (PowerShell):** run `.\launch.ps1`
 - **Linux / ESXi:** run `bash launch.sh`
+- **macOS:** open Terminal, run `bash launch.sh` (auto-detects Darwin)
 
 ## Menu Options
 
@@ -75,23 +78,27 @@ Plug the USB drive into the target machine, then:
 wolfix/
 ├── launch.bat                         # Windows CMD launcher
 ├── launch.ps1                         # Windows PowerShell launcher
-├── launch.sh                          # Linux / ESXi launcher
+├── launch.sh                          # Linux / macOS / ESXi launcher
 ├── setup-usb.ps1                      # One-time USB setup script
 ├── toolkit/
 │   ├── prompts/
 │   │   ├── windows-health.md          # Windows diagnostic prompt
 │   │   ├── linux-health.md            # Linux diagnostic prompt
+│   │   ├── macos-health.md            # macOS diagnostic prompt
 │   │   ├── esxi-health.md             # ESXi diagnostic prompt
 │   │   ├── vmware-health.md           # vCenter diagnostic prompt
 │   │   └── server-2008-2012.md        # Legacy server data collection prompt
 │   ├── scripts/
 │   │   ├── collect-win.ps1            # Windows data collection script
 │   │   ├── collect-linux.sh           # Linux data collection script
+│   │   ├── collect-macos.sh           # macOS data collection script
 │   │   └── collect-esxi.sh           # ESXi data collection script
 │   └── logs/                          # Collected data output directory
 ├── runtime/                           # Node.js portable runtimes (created by setup)
 │   ├── node-win-x64/
-│   └── node-linux-x64/
+│   ├── node-linux-x64/
+│   ├── node-darwin-x64/               # macOS Intel
+│   └── node-darwin-arm64/             # macOS Apple Silicon (M1/M2/M3/M4)
 ├── claude-code/                       # Claude Code CLI (created by setup)
 └── config/                            # Authentication and configuration (created by setup)
 ```
@@ -109,6 +116,7 @@ The toolkit includes pre-built diagnostic prompts for each supported platform. T
 - **Authentication:** Anthropic API key or Claude Max subscription
 - **Windows:** PowerShell 5.1+ (for setup and PowerShell launcher)
 - **Linux:** Bash, tar (for Node.js extraction on first run)
+- **macOS:** Bash, tar (for Node.js extraction on first run); supports both Intel and Apple Silicon
 
 ## Security Note
 
