@@ -1,0 +1,19 @@
+# Runtime e dipendenze (scaricati da setup-usb.ps1)
+runtime/
+claude-code/
+
+# Config con credenziali
+config/
+
+# Output diagnosi
+toolkit/logs/
+
+# Claude Code local settings
+.claude/
+.agents/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+System Volume Information/
