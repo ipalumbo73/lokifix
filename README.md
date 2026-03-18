@@ -109,6 +109,20 @@ Wolfix bundles a portable Node.js runtime and the Claude Code CLI on a USB drive
 
 The toolkit includes pre-built diagnostic prompts for each supported platform. These prompts instruct Claude Code to perform a structured analysis covering services, storage, memory, logs, networking, and security. You can also open an interactive session to ask Claude Code anything or describe a specific problem for guided troubleshooting.
 
+## Zero Footprint -- Nothing Left Behind
+
+Wolfix is designed so that **nothing is installed on the target machine**. Node.js, Claude Code, configuration files, and authentication credentials all live on the USB drive. The launcher scripts only set temporary environment variables (`PATH`, `NODE_PATH`, `CLAUDE_CONFIG_DIR`) that exist in the current shell session and disappear the moment the terminal is closed.
+
+When you remove the USB drive, the target machine is exactly as it was before:
+
+- **No files written to disk** -- no binaries, no libraries, no config files
+- **No registry changes** (Windows) -- no entries added or modified
+- **No system services installed** -- no daemons, no launch agents, no scheduled tasks
+- **No PATH modifications** -- the temporary PATH change is lost when the shell session ends
+- **No credentials stored locally** -- API keys and authentication tokens stay on the USB drive in the `config/` directory
+
+This makes Wolfix ideal for technicians working on client machines where you cannot (or should not) install software, and for environments where compliance requires that no third-party tools are left behind after an intervention.
+
 ## Requirements
 
 - **USB drive:** 1 GB minimum free space
