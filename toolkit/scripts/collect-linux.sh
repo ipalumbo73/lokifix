@@ -6,7 +6,7 @@
 # Uso: bash collect-linux.sh [output_dir]
 #
 
-set -uo pipefail
+set -euo pipefail
 
 OUTPUT_DIR="${1:-./toolkit/logs}"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
@@ -37,10 +37,10 @@ echo ""
     section "INFORMAZIONI OS"
     cat /etc/os-release 2>/dev/null || echo "os-release non disponibile"
     echo ""
-    uname -a
+    uname -a 2>/dev/null
 
     section "UPTIME E LOAD"
-    uptime
+    uptime 2>/dev/null
     echo ""
     cat /proc/loadavg 2>/dev/null
 
@@ -123,7 +123,7 @@ echo ""
     ps aux --sort=-%cpu 2>/dev/null | head -16
 
     section "UTENTI LOGGATI"
-    who 2>/dev/null
+    who 2>/dev/null || true
     echo ""
     echo "--- Ultimi login ---"
     last -10 2>/dev/null
@@ -145,7 +145,7 @@ echo ""
 
     section "SICUREZZA RAPIDA"
     echo "--- SUID files ---"
-    find / -perm -4000 -type f 2>/dev/null | head -20
+    timeout 30 find / -perm -4000 -type f 2>/dev/null | head -20
     echo ""
     echo "--- SSH config ---"
     grep -v "^#\|^$" /etc/ssh/sshd_config 2>/dev/null | head -20

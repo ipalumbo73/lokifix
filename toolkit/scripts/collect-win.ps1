@@ -49,21 +49,38 @@ Utente: $env:USERNAME
 Set-Content -Path $outputFile -Value $header
 
 Write-Section "INFORMAZIONI OS" {
-    Get-CimInstance Win32_OperatingSystem | Format-List Caption, Version, BuildNumber, OSArchitecture, LastBootUpTime, InstallDate
+    try {
+        Get-CimInstance Win32_OperatingSystem | Format-List Caption, Version, BuildNumber, OSArchitecture, LastBootUpTime, InstallDate
+    } catch {
+        Get-WmiObject Win32_OperatingSystem | Format-List Caption, Version, BuildNumber, OSArchitecture, LastBootUpTime, InstallDate
+    }
 }
 
 Write-Section "HARDWARE" {
     Write-Output "--- CPU ---"
-    Get-CimInstance Win32_Processor | Format-List Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed
+    try {
+        Get-CimInstance Win32_Processor | Format-List Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed
+    } catch {
+        Get-WmiObject Win32_Processor | Format-List Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed
+    }
     Write-Output "--- RAM ---"
-    $os = Get-CimInstance Win32_OperatingSystem
+    try {
+        $os = Get-CimInstance Win32_OperatingSystem
+    } catch {
+        $os = Get-WmiObject Win32_OperatingSystem
+    }
     Write-Output "RAM Totale: $([math]::Round($os.TotalVisibleMemorySize / 1MB, 2)) GB"
     Write-Output "RAM Libera: $([math]::Round($os.FreePhysicalMemory / 1MB, 2)) GB"
     Write-Output "RAM Usata:  $([math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / 1MB, 2)) GB"
 }
 
 Write-Section "SPAZIO DISCO" {
-    Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Format-Table DeviceID,
+    try {
+        $disks = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3"
+    } catch {
+        $disks = Get-WmiObject Win32_LogicalDisk -Filter "DriveType=3"
+    }
+    $disks | Format-Table DeviceID,
         @{N="Dimensione GB";E={[math]::Round($_.Size/1GB,2)}},
         @{N="Libero GB";E={[math]::Round($_.FreeSpace/1GB,2)}},
         @{N="Uso %";E={[math]::Round(($_.Size - $_.FreeSpace) / $_.Size * 100, 1)}}
@@ -86,6 +103,7 @@ Write-Section "SERVIZI CRITICI" {
     }
 }
 
+# NOTE: event log queries may take 30+ seconds on systems with large logs
 Write-Section "EVENT LOG - ERRORI CRITICI (ultime 24h)" {
     $since = (Get-Date).AddHours(-24)
     Get-EventLog -LogName System -EntryType Error -After $since -Newest 30 -ErrorAction SilentlyContinue |
@@ -102,23 +120,39 @@ Write-Section "CONFIGURAZIONE RETE" {
     Get-NetIPConfiguration -ErrorAction SilentlyContinue | Format-List InterfaceAlias, IPv4Address, IPv4DefaultGateway, DNSServer
 }
 
+# NOTE: may take a few seconds on systems with many connections
 Write-Section "CONNESSIONI ATTIVE (porte in ascolto)" {
-    Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-        Sort-Object LocalPort |
-        Select-Object LocalAddress, LocalPort, OwningProcess,
-            @{N="Process";E={(Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName}} |
-        Format-Table -AutoSize
+    try {
+        Get-NetTCPConnection -State Listen -ErrorAction Stop |
+            Sort-Object LocalPort |
+            Select-Object LocalAddress, LocalPort, OwningProcess,
+                @{N="Process";E={(Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName}} |
+            Format-Table -AutoSize
+    } catch {
+        # Fallback for Windows 7 / Server 2008 where Get-NetTCPConnection is unavailable
+        netstat -an | Select-String "LISTENING"
+    }
 }
 
+# NOTE: hotfix enumeration may take a while on heavily patched systems
 Write-Section "AGGIORNAMENTI WINDOWS RECENTI" {
     Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 15 |
         Format-Table HotFixID, Description, InstalledOn -AutoSize
 }
 
 Write-Section "UPTIME E BOOT" {
-    $os = Get-CimInstance Win32_OperatingSystem
-    $uptime = (Get-Date) - $os.LastBootUpTime
-    Write-Output "Ultimo boot: $($os.LastBootUpTime)"
+    try {
+        $os = Get-CimInstance Win32_OperatingSystem
+    } catch {
+        $os = Get-WmiObject Win32_OperatingSystem
+    }
+    $lastBoot = $os.LastBootUpTime
+    # WmiObject returns a string date, CimInstance returns DateTime - normalize
+    if ($lastBoot -is [string]) {
+        $lastBoot = [System.Management.ManagementDateTimeConverter]::ToDateTime($lastBoot)
+    }
+    $uptime = (Get-Date) - $lastBoot
+    Write-Output "Ultimo boot: $lastBoot"
     Write-Output "Uptime: $($uptime.Days) giorni, $($uptime.Hours) ore, $($uptime.Minutes) minuti"
 }
 
@@ -129,6 +163,7 @@ Write-Section "PROCESSI - TOP 15 PER MEMORIA" {
             @{N="CPU sec";E={[math]::Round($_.CPU,1)}} -AutoSize
 }
 
+# NOTE: scheduled task enumeration may take time on systems with many tasks
 Write-Section "TASK SCHEDULATI FALLITI" {
     Get-ScheduledTask -ErrorAction SilentlyContinue |
         Where-Object { $_.LastTaskResult -ne 0 -and $_.LastTaskResult -ne 267011 -and $_.State -ne "Disabled" } |
@@ -137,7 +172,12 @@ Write-Section "TASK SCHEDULATI FALLITI" {
 }
 
 Write-Section "FIREWALL PROFILI" {
-    Get-NetFirewallProfile -ErrorAction SilentlyContinue | Format-Table Name, Enabled, DefaultInboundAction, DefaultOutboundAction
+    try {
+        Get-NetFirewallProfile -ErrorAction Stop | Format-Table Name, Enabled, DefaultInboundAction, DefaultOutboundAction
+    } catch {
+        # Fallback for Windows 7 / Server 2008 where Get-NetFirewallProfile is unavailable
+        netsh advfirewall show allprofiles
+    }
 }
 
 Write-Section "UTENTI LOCALI" {

@@ -73,7 +73,16 @@ $nodeWinDest = Join-Path $UsbRoot "runtime\node-win-x64"
 
 if (-not (Test-Path (Join-Path $nodeWinDest "node.exe"))) {
     Write-Host "  Scaricamento da $nodeWinUrl ..."
-    Invoke-WebRequest -Uri $nodeWinUrl -OutFile $nodeWinZip -UseBasicParsing
+    $maxRetries = 2
+    for ($i = 1; $i -le $maxRetries; $i++) {
+        try {
+            Invoke-WebRequest -Uri $nodeWinUrl -OutFile $nodeWinZip -UseBasicParsing -TimeoutSec 120
+            break
+        } catch {
+            if ($i -eq $maxRetries) { throw }
+            Write-Host "[RETRY] Tentativo $i fallito, riprovo..." -ForegroundColor Yellow
+        }
+    }
     Write-Host "  Estrazione..."
     Expand-Archive -Path $nodeWinZip -DestinationPath (Join-Path $env:TEMP "node-win-extract") -Force
     $extractedDir = Get-ChildItem (Join-Path $env:TEMP "node-win-extract") | Select-Object -First 1
@@ -94,7 +103,16 @@ $nodeLinuxDest = Join-Path $UsbRoot "runtime\node-linux-x64"
 
 if (-not (Test-Path (Join-Path $nodeLinuxDest "bin"))) {
     Write-Host "  Scaricamento da $nodeLinuxUrl ..."
-    Invoke-WebRequest -Uri $nodeLinuxUrl -OutFile $nodeLinuxTar -UseBasicParsing
+    $maxRetries = 2
+    for ($i = 1; $i -le $maxRetries; $i++) {
+        try {
+            Invoke-WebRequest -Uri $nodeLinuxUrl -OutFile $nodeLinuxTar -UseBasicParsing -TimeoutSec 120
+            break
+        } catch {
+            if ($i -eq $maxRetries) { throw }
+            Write-Host "[RETRY] Tentativo $i fallito, riprovo..." -ForegroundColor Yellow
+        }
+    }
     Write-Host "  NOTA: Estrai manualmente il .tar.xz su Linux con:"
     Write-Host "    tar -xf node-linux-x64.tar.xz -C /path/to/usb/runtime/node-linux-x64 --strip-components=1" -ForegroundColor Yellow
     Copy-Item $nodeLinuxTar -Destination $nodeLinuxDest -Force

@@ -44,6 +44,8 @@ echo    [3] Analizza file di log
 echo    [4] Fix guidato
 echo    [5] Raccogli dati per analisi offline
 echo    [6] Connetti a server remoto SSH
+echo    [7] Diagnosi rete
+echo    [8] Analisi sicurezza
 echo    [0] Esci
 echo  --------------------------------------------
 echo.
@@ -56,6 +58,8 @@ if "%CHOICE%"=="3" goto analizza_log
 if "%CHOICE%"=="4" goto fix_guidato
 if "%CHOICE%"=="5" goto raccogli_dati
 if "%CHOICE%"=="6" goto ssh_remoto
+if "%CHOICE%"=="7" goto diagnosi_rete
+if "%CHOICE%"=="8" goto analisi_sicurezza
 if "%CHOICE%"=="0" goto fine
 echo Scelta non valida.
 echo.
@@ -133,7 +137,29 @@ echo Tornato al menu.
 echo.
 goto menu
 
+:diagnosi_rete
+echo.
+echo Avvio diagnosi rete...
+echo Per uscire e tornare al menu: scrivi /exit oppure premi Ctrl+C
+echo.
+call "%CLAUDE_BIN%" "Esegui una diagnosi completa della rete su questo sistema Windows: interfacce di rete, configurazione IP, DNS, gateway, tabella routing, porte in ascolto, connessioni attive, firewall rules, test connettivita' verso internet e DNS. Identifica problemi e proponi fix."
+echo.
+echo Tornato al menu.
+echo.
+goto menu
+
+:analisi_sicurezza
+echo.
+echo Avvio analisi sicurezza...
+echo Per uscire e tornare al menu: scrivi /exit oppure premi Ctrl+C
+echo.
+call "%CLAUDE_BIN%" "Esegui un'analisi di sicurezza di questo sistema Windows: utenti e gruppi locali, policy password, servizi in esecuzione come SYSTEM, porte aperte, firewall, antivirus, aggiornamenti mancanti, share di rete, task schedulati sospetti, autorun. Segnala vulnerabilita' e proponi remediation."
+echo.
+echo Tornato al menu.
+echo.
+goto menu
+
 :fine
 echo Arrivederci.
-timeout /t 2 >/dev/null
+timeout /t 2 >nul
 exit /b 0
