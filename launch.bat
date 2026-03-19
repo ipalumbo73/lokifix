@@ -84,11 +84,18 @@ if not exist "%NODE_DIR%\node.exe" (
 
 set "CLAUDE_BIN=%USB_ROOT%\claude-code\claude.cmd"
 if not exist "%CLAUDE_BIN%" (
+    echo [*] claude.cmd non trovato, tento auto-repair...
+    for %%F in ("%USB_ROOT%\claude-code\.claude.cmd-*") do (
+        copy "%%F" "%CLAUDE_BIN%" >nul 2>&1
+        echo [OK] claude.cmd ripristinato da %%~nxF
+        goto claude_ok
+    )
     echo [ERRORE] Claude Code non trovato.
     echo Esegui prima setup-usb.ps1 per preparare la chiavetta.
     pause
     exit /b 1
 )
+:claude_ok
 
 set "PATH=%NODE_DIR%;%USB_ROOT%\claude-code;%PATH%"
 set "NPM_CONFIG_PREFIX=%USB_ROOT%\claude-code"

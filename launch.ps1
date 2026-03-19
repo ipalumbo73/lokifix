@@ -38,8 +38,15 @@ if (-not (Test-Path $nodeBin)) {
     exit 1
 }
 if (-not (Test-Path $claudeBin)) {
-    Write-Host "[ERRORE] Claude Code non trovato. Esegui setup-usb.ps1 prima." -ForegroundColor Red
-    exit 1
+    Write-Host "[*] claude.cmd non trovato, tento auto-repair..." -ForegroundColor Yellow
+    $tempFiles = Get-ChildItem (Join-Path $UsbRoot "claude-code") -Filter ".claude.cmd-*" -ErrorAction SilentlyContinue
+    if ($tempFiles) {
+        Copy-Item $tempFiles[0].FullName $claudeBin -Force
+        Write-Host "[OK] claude.cmd ripristinato da $($tempFiles[0].Name)" -ForegroundColor Green
+    } else {
+        Write-Host "[ERRORE] Claude Code non trovato. Esegui setup-usb.ps1 prima." -ForegroundColor Red
+        exit 1
+    }
 }
 
 # === RILEVA SISTEMA ===
