@@ -95,6 +95,12 @@ set "NPM_CONFIG_PREFIX=%USB_ROOT%\claude-code"
 set "CLAUDE_CONFIG_DIR=%USB_ROOT%\config"
 set "NODE_PATH=%USB_ROOT%\claude-code\lib\node_modules"
 
+set "GIT_DIR=%USB_ROOT%\runtime\git-win-x64"
+if exist "%GIT_DIR%\bin\bash.exe" (
+    set "CLAUDE_CODE_GIT_BASH_PATH=%GIT_DIR%\bin\bash.exe"
+    set "PATH=%GIT_DIR%\bin;%GIT_DIR%\cmd;%PATH%"
+)
+
 echo %MSG_OK%
 echo.
 

@@ -22,6 +22,13 @@ $env:NPM_CONFIG_PREFIX = "$UsbRoot\claude-code"
 $env:CLAUDE_CONFIG_DIR = "$UsbRoot\config"
 $env:NODE_PATH = "$UsbRoot\claude-code\lib\node_modules"
 
+$gitDir = Join-Path $UsbRoot "runtime\git-win-x64"
+$gitBash = Join-Path $gitDir "bin\bash.exe"
+if (Test-Path $gitBash) {
+    $env:CLAUDE_CODE_GIT_BASH_PATH = $gitBash
+    $env:PATH = "$gitDir\bin;$gitDir\cmd;$env:PATH"
+}
+
 $claudeBin = Join-Path $UsbRoot "claude-code\bin\claude.cmd"
 $nodeBin = Join-Path $UsbRoot "runtime\node-win-x64\node.exe"
 

@@ -32,9 +32,9 @@ if (-not (Test-Path $UsbRoot)) {
 }
 
 $freeSpace = (Get-PSDrive $UsbDrive).Free
-$requiredSpace = 600MB
+$requiredSpace = 800MB
 if ($freeSpace -lt $requiredSpace) {
-    Write-Error "Spazio insufficiente. Servono almeno 600MB liberi. Disponibili: $([math]::Round($freeSpace / 1MB))MB"
+    Write-Error "Spazio insufficiente. Servono almeno 800MB liberi. Disponibili: $([math]::Round($freeSpace / 1MB))MB"
     exit 1
 }
 
@@ -44,13 +44,14 @@ Write-Host "Node.js version: $NodeVersion" -ForegroundColor Yellow
 Write-Host ""
 
 # --- Creazione struttura directory ---
-Write-Host "[1/8] Creazione struttura directory..." -ForegroundColor Green
+Write-Host "[1/9] Creazione struttura directory..." -ForegroundColor Green
 
 $directories = @(
     "runtime\node-win-x64",
     "runtime\node-linux-x64",
     "runtime\node-darwin-x64",
     "runtime\node-darwin-arm64",
+    "runtime\git-win-x64",
     "claude-code",
     "config",
     "config\rules",
@@ -67,7 +68,7 @@ foreach ($dir in $directories) {
 }
 
 # --- Download Node.js Windows ---
-Write-Host "[2/8] Download Node.js $NodeVersion per Windows x64..." -ForegroundColor Green
+Write-Host "[2/9] Download Node.js $NodeVersion per Windows x64..." -ForegroundColor Green
 
 $nodeWinZip = Join-Path $env:TEMP "node-win-x64.zip"
 $nodeWinUrl = "https://nodejs.org/dist/v${NodeVersion}/node-v${NodeVersion}-win-x64.zip"
@@ -97,7 +98,7 @@ if (-not (Test-Path (Join-Path $nodeWinDest "node.exe"))) {
 }
 
 # --- Download Node.js Linux ---
-Write-Host "[3/8] Download Node.js $NodeVersion per Linux x64..." -ForegroundColor Green
+Write-Host "[3/9] Download Node.js $NodeVersion per Linux x64..." -ForegroundColor Green
 
 $nodeLinuxTar = Join-Path $env:TEMP "node-linux-x64.tar.xz"
 $nodeLinuxUrl = "https://nodejs.org/dist/v${NodeVersion}/node-v${NodeVersion}-linux-x64.tar.xz"
@@ -125,7 +126,7 @@ if (-not (Test-Path (Join-Path $nodeLinuxDest "bin"))) {
 }
 
 # --- Download Node.js macOS x64 ---
-Write-Host "[4/8] Download Node.js $NodeVersion per macOS x64..." -ForegroundColor Green
+Write-Host "[4/9] Download Node.js $NodeVersion per macOS x64..." -ForegroundColor Green
 
 $nodeMacX64Tar = Join-Path $env:TEMP "node-mac-x64.tar.gz"
 $nodeMacX64Url = "https://nodejs.org/dist/v${NodeVersion}/node-v${NodeVersion}-darwin-x64.tar.gz"
@@ -151,7 +152,7 @@ if (-not (Test-Path (Join-Path $nodeMacX64Dest "bin"))) {
 }
 
 # --- Download Node.js macOS ARM64 ---
-Write-Host "[5/8] Download Node.js $NodeVersion per macOS ARM64..." -ForegroundColor Green
+Write-Host "[5/9] Download Node.js $NodeVersion per macOS ARM64..." -ForegroundColor Green
 
 $nodeMacArm64Tar = Join-Path $env:TEMP "node-mac-arm64.tar.gz"
 $nodeMacArm64Url = "https://nodejs.org/dist/v${NodeVersion}/node-v${NodeVersion}-darwin-arm64.tar.gz"
@@ -176,8 +177,37 @@ if (-not (Test-Path (Join-Path $nodeMacArm64Dest "bin"))) {
     Write-Host "  Gia' presente, skip." -ForegroundColor Yellow
 }
 
+# --- Download Git Portable per Windows ---
+Write-Host "[6/9] Download Git Portable per Windows..." -ForegroundColor Green
+
+$gitVersion = "2.47.1"
+$gitPortableUrl = "https://github.com/git-for-windows/git/releases/download/v${gitVersion}.windows.1/PortableGit-${gitVersion}-64-bit.7z.exe"
+$gitDest = Join-Path $UsbRoot "runtime\git-win-x64"
+
+if (-not (Test-Path (Join-Path $gitDest "bin\bash.exe"))) {
+    $gitInstaller = Join-Path $env:TEMP "PortableGit.exe"
+    Write-Host "  Scaricamento Git Portable $gitVersion ..."
+    $maxRetries = 2
+    for ($i = 1; $i -le $maxRetries; $i++) {
+        try {
+            Invoke-WebRequest -Uri $gitPortableUrl -OutFile $gitInstaller -UseBasicParsing -TimeoutSec 180
+            break
+        } catch {
+            if ($i -eq $maxRetries) { throw }
+            Write-Host "[RETRY] Tentativo $i fallito, riprovo..." -ForegroundColor Yellow
+        }
+    }
+    Write-Host "  Estrazione in $gitDest ..."
+    if (-not (Test-Path $gitDest)) { New-Item -ItemType Directory -Path $gitDest -Force | Out-Null }
+    & $gitInstaller -o"$gitDest" -y 2>&1 | Out-Null
+    Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+    Write-Host "  OK" -ForegroundColor Green
+} else {
+    Write-Host "  Gia' presente, skip." -ForegroundColor Yellow
+}
+
 # --- Installazione Claude Code ---
-Write-Host "[6/8] Installazione Claude Code..." -ForegroundColor Green
+Write-Host "[7/9] Installazione Claude Code..." -ForegroundColor Green
 
 $nodePath = Join-Path $UsbRoot "runtime\node-win-x64\node.exe"
 $npmPath = Join-Path $UsbRoot "runtime\node-win-x64\npm.cmd"
@@ -193,7 +223,7 @@ Write-Host "  Installazione @anthropic-ai/claude-code..."
 Write-Host "  OK" -ForegroundColor Green
 
 # --- Login Claude ---
-Write-Host "[7/8] Configurazione autenticazione..." -ForegroundColor Green
+Write-Host "[8/9] Configurazione autenticazione..." -ForegroundColor Green
 
 $env:CLAUDE_CONFIG_DIR = Join-Path $UsbRoot "config"
 $claudeBin = Join-Path $claudeCodeDir "bin\claude.cmd"
@@ -207,7 +237,7 @@ if (Test-Path $claudeBin) {
 }
 
 # --- Copia launcher e toolkit ---
-Write-Host "[8/8] Copia launcher e toolkit sulla chiavetta..." -ForegroundColor Green
+Write-Host "[9/9] Copia launcher e toolkit sulla chiavetta..." -ForegroundColor Green
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $filesToCopy = @(
@@ -221,7 +251,12 @@ $filesToCopy = @(
     "toolkit\prompts\server-2008-2012.md",
     "toolkit\scripts\collect-win.ps1",
     "toolkit\scripts\collect-linux.sh",
-    "toolkit\scripts\collect-esxi.sh"
+    "toolkit\scripts\collect-esxi.sh",
+    "toolkit\prompts\macos-health.md",
+    "toolkit\scripts\collect-macos.sh",
+    "toolkit\scripts\log-session.ps1",
+    "VERSION",
+    "README.md"
 )
 
 foreach ($file in $filesToCopy) {
@@ -241,6 +276,7 @@ Write-Host "=== SETUP COMPLETATO ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Struttura chiavetta ${UsbDrive}:\" -ForegroundColor Yellow
 Write-Host "  runtime\         - Node.js portable (Win + Linux + macOS)"
+Write-Host "  runtime\git\     - Git Portable (per Windows senza Git)"
 Write-Host "  claude-code\     - Claude Code CLI"
 Write-Host "  config\          - Configurazione e credenziali"
 Write-Host "  toolkit\         - Prompt diagnostici e script"
