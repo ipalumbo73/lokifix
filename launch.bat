@@ -248,15 +248,22 @@ goto menu
 echo.
 echo %MSG_EJECT_SYNC%
 set "USB_DRIVE=%USB_ROOT:~0,2%"
-powershell -NoProfile -Command "$shell = New-Object -ComObject Shell.Application; $drive = $shell.Namespace(17).ParseName('%USB_DRIVE%\'); if ($drive) { $drive.InvokeVerb('Eject') }" >nul 2>&1
-timeout /t 3 >nul
-if exist "%USB_ROOT%\launch.bat" (
-    echo %MSG_EJECT_FAIL%
-    echo.
-    goto menu
-)
-echo %MSG_EJECT_OK%
-timeout /t 3 >nul
+set "EJECT_SCRIPT=%TEMP%\wolfix-eject.bat"
+(
+    echo @echo off
+    echo timeout /t 2 /nobreak ^>nul
+    echo powershell -NoProfile -Command "$shell = New-Object -ComObject Shell.Application; $drive = $shell.Namespace(17^).ParseName('%USB_DRIVE%\'^); if ($drive^) { $drive.InvokeVerb('Eject'^) }"
+    echo timeout /t 3 /nobreak ^>nul
+    echo if exist "%USB_ROOT%\launch.bat" (
+    echo     echo %MSG_EJECT_FAIL%
+    echo     pause
+    echo ^) else (
+    echo     echo %MSG_EJECT_OK%
+    echo     timeout /t 3 /nobreak ^>nul
+    echo ^)
+    echo del "%%~f0"
+) > "%EJECT_SCRIPT%"
+start "" "%EJECT_SCRIPT%"
 exit /b 0
 
 :fine

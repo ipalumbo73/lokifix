@@ -310,40 +310,47 @@ do_analisi_sicurezza() {
 do_sgancia_usb() {
     echo -e "${CYAN}${MSG_EJECT_SYNC}${NC}"
     sync
-    # Find mount point for USB_ROOT
-    local mount_point
+    # Detect mount point and device BEFORE exiting
+    local mount_point device
     mount_point=$(df "$USB_ROOT" 2>/dev/null | tail -1 | awk '{print $NF}')
-    local device
     device=$(df "$USB_ROOT" 2>/dev/null | tail -1 | awk '{print $1}')
+    local eject_script="/tmp/wolfix-eject.sh"
+    local msg_ok="$MSG_EJECT_OK"
+    local msg_fail="$MSG_EJECT_FAIL"
 
-    if [ "$OS_TYPE" = "Darwin" ]; then
-        # macOS: use diskutil to eject
-        if diskutil eject "$device" 2>/dev/null; then
-            echo -e "${GREEN}${MSG_EJECT_OK}${NC}"
-            sleep 3
-            exit 0
-        else
-            echo -e "${RED}${MSG_EJECT_FAIL}${NC}"
-        fi
+    cat > "$eject_script" << EOFSCRIPT
+#!/usr/bin/env bash
+sleep 2
+if [ "$OS_TYPE" = "Darwin" ]; then
+    if diskutil eject "$device" 2>/dev/null; then
+        echo "$msg_ok"
     else
-        # Linux: try udisksctl first (no sudo), fallback to umount
-        if command -v udisksctl &>/dev/null; then
-            if udisksctl unmount -b "$device" 2>/dev/null && \
-               udisksctl power-off -b "$device" 2>/dev/null; then
-                echo -e "${GREEN}${MSG_EJECT_OK}${NC}"
-                sleep 3
-                exit 0
-            fi
-        fi
-        # Fallback: try umount (may need sudo)
-        if umount "$mount_point" 2>/dev/null || sudo -n umount "$mount_point" 2>/dev/null; then
-            echo -e "${GREEN}${MSG_EJECT_OK}${NC}"
-            sleep 3
-            exit 0
-        else
-            echo -e "${RED}${MSG_EJECT_FAIL}${NC}"
+        echo "$msg_fail"
+    fi
+else
+    ejected=false
+    if command -v udisksctl &>/dev/null; then
+        if udisksctl unmount -b "$device" 2>/dev/null && \
+           udisksctl power-off -b "$device" 2>/dev/null; then
+            ejected=true
         fi
     fi
+    if [ "\$ejected" = "false" ]; then
+        if umount "$mount_point" 2>/dev/null || sudo -n umount "$mount_point" 2>/dev/null; then
+            echo "$msg_ok"
+        else
+            echo "$msg_fail"
+        fi
+    else
+        echo "$msg_ok"
+    fi
+fi
+sleep 3
+rm -f "\$0"
+EOFSCRIPT
+    chmod +x "$eject_script"
+    nohup bash "$eject_script" &
+    exit 0
 }
 
 # === MAIN ===

@@ -243,25 +243,26 @@ function Start-AnalisiSicurezza {
 function Start-EjectUSB {
     Write-Host $strings.EjectSync -ForegroundColor Cyan
     $driveLetter = $UsbRoot.Substring(0, 2)
-    try {
-        $shell = New-Object -ComObject Shell.Application
-        $drive = $shell.Namespace(17).ParseName("$driveLetter\")
-        if ($drive) {
-            $drive.InvokeVerb("Eject")
-            Start-Sleep -Seconds 3
-            if (Test-Path $UsbRoot) {
-                Write-Host $strings.EjectFail -ForegroundColor Red
-            } else {
-                Write-Host $strings.EjectOk -ForegroundColor Green
-                Start-Sleep -Seconds 3
-                exit 0
-            }
-        } else {
-            Write-Host $strings.EjectFail -ForegroundColor Red
-        }
-    } catch {
-        Write-Host $strings.EjectFail -ForegroundColor Red
-    }
+    $ejectScript = Join-Path $env:TEMP "wolfix-eject.ps1"
+    $msgOk = $strings.EjectOk
+    $msgFail = $strings.EjectFail
+    @"
+Start-Sleep -Seconds 2
+`$shell = New-Object -ComObject Shell.Application
+`$drive = `$shell.Namespace(17).ParseName("$driveLetter\")
+if (`$drive) { `$drive.InvokeVerb("Eject") }
+Start-Sleep -Seconds 3
+if (Test-Path "$UsbRoot") {
+    Write-Host "$msgFail" -ForegroundColor Red
+    Read-Host "Premi Invio per chiudere"
+} else {
+    Write-Host "$msgOk" -ForegroundColor Green
+    Start-Sleep -Seconds 3
+}
+Remove-Item -Path `$MyInvocation.MyCommand.Path -Force
+"@ | Set-Content -Path $ejectScript -Encoding UTF8
+    Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ejectScript`""
+    exit 0
 }
 
 # === MAIN LOOP ===
