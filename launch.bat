@@ -28,6 +28,7 @@ set "M5=[5] Collect data for offline analysis"
 set "M6=[6] Connect to remote server (SSH)"
 set "M7=[7] Network diagnosis"
 set "M8=[8] Security analysis"
+set "M9=[9] Safely eject USB"
 set "M0=[0] Exit"
 set "MSG_OK=[OK] Environment configured."
 set "MSG_CHOICE=Choice: "
@@ -44,6 +45,9 @@ set "MSG_SECSTART=Starting security analysis..."
 set "MSG_DIAGSTART=Starting full diagnosis..."
 set "MSG_BYE=Goodbye."
 set "MSG_NOTFOUND=File not found."
+set "MSG_EJECT_SYNC=Flushing buffers..."
+set "MSG_EJECT_OK=USB safely ejected. You can remove the drive now."
+set "MSG_EJECT_FAIL=Could not eject the USB drive. Close all open files and try again."
 goto env_setup
 
 :set_it
@@ -55,6 +59,7 @@ set "M5=[5] Raccogli dati per analisi offline"
 set "M6=[6] Connetti a server remoto SSH"
 set "M7=[7] Diagnosi rete"
 set "M8=[8] Analisi sicurezza"
+set "M9=[9] Sgancia chiavetta USB"
 set "M0=[0] Esci"
 set "MSG_OK=[OK] Ambiente configurato."
 set "MSG_CHOICE=Scelta: "
@@ -71,6 +76,9 @@ set "MSG_SECSTART=Avvio analisi sicurezza..."
 set "MSG_DIAGSTART=Avvio diagnosi completa..."
 set "MSG_BYE=Arrivederci."
 set "MSG_NOTFOUND=File non trovato."
+set "MSG_EJECT_SYNC=Scaricamento buffer in corso..."
+set "MSG_EJECT_OK=Chiavetta USB sganciata in sicurezza. Puoi rimuoverla."
+set "MSG_EJECT_FAIL=Impossibile sganciare la chiavetta. Chiudi tutti i file aperti e riprova."
 goto env_setup
 
 :env_setup
@@ -121,6 +129,7 @@ echo    %M5%
 echo    %M6%
 echo    %M7%
 echo    %M8%
+echo    %M9%
 echo    %M0%
 echo  --------------------------------------------
 echo.
@@ -135,6 +144,7 @@ if "%CHOICE%"=="5" goto raccogli_dati
 if "%CHOICE%"=="6" goto ssh_remoto
 if "%CHOICE%"=="7" goto diagnosi_rete
 if "%CHOICE%"=="8" goto analisi_sicurezza
+if "%CHOICE%"=="9" goto sgancia_usb
 if "%CHOICE%"=="0" goto fine
 echo %MSG_INVALID%
 echo.
@@ -233,6 +243,21 @@ echo.
 echo %MSG_BACK%
 echo.
 goto menu
+
+:sgancia_usb
+echo.
+echo %MSG_EJECT_SYNC%
+set "USB_DRIVE=%USB_ROOT:~0,2%"
+powershell -NoProfile -Command "$shell = New-Object -ComObject Shell.Application; $drive = $shell.Namespace(17).ParseName('%USB_DRIVE%\'); if ($drive) { $drive.InvokeVerb('Eject') }" >nul 2>&1
+timeout /t 3 >nul
+if exist "%USB_ROOT%\launch.bat" (
+    echo %MSG_EJECT_FAIL%
+    echo.
+    goto menu
+)
+echo %MSG_EJECT_OK%
+timeout /t 3 >nul
+exit /b 0
 
 :fine
 echo %MSG_BYE%

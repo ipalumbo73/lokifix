@@ -110,6 +110,7 @@ set_language() {
         M6="[6] Connect to remote server (SSH)"
         M7="[7] Network diagnosis"
         M8="[8] Security analysis"
+        M9="[9] Safely eject USB"
         M0="[0] Exit"
         MSG_CHOICE="Choice: "
         MSG_LOGPATH="Log file path: "
@@ -123,6 +124,9 @@ set_language() {
         MSG_NOTFOUND="[ERROR] File not found:"
         MSG_INVALID="Invalid choice."
         MSG_BYE="Goodbye. No traces left on the system."
+        MSG_EJECT_SYNC="Flushing buffers..."
+        MSG_EJECT_OK="USB safely ejected. You can remove the drive now."
+        MSG_EJECT_FAIL="Could not eject the USB drive. Close all open files and try again."
     else
         M1="[1] Diagnosi completa del sistema"
         M2="[2] Claude Code interattivo"
@@ -132,6 +136,7 @@ set_language() {
         M6="[6] Connetti a server remoto (SSH)"
         M7="[7] Diagnosi rete"
         M8="[8] Analisi sicurezza"
+        M9="[9] Sgancia chiavetta USB"
         M0="[0] Esci"
         MSG_CHOICE="Scelta: "
         MSG_LOGPATH="Percorso del file di log: "
@@ -145,6 +150,9 @@ set_language() {
         MSG_NOTFOUND="[ERRORE] File non trovato:"
         MSG_INVALID="Scelta non valida."
         MSG_BYE="Arrivederci. Nessuna traccia lasciata sul sistema."
+        MSG_EJECT_SYNC="Scaricamento buffer in corso..."
+        MSG_EJECT_OK="Chiavetta USB sganciata in sicurezza. Puoi rimuoverla."
+        MSG_EJECT_FAIL="Impossibile sganciare la chiavetta. Chiudi tutti i file aperti e riprova."
     fi
 }
 
@@ -188,6 +196,7 @@ show_menu() {
     printf "${YELLOW}  │  %-37s│${NC}\n" "$M6"
     printf "${YELLOW}  │  %-37s│${NC}\n" "$M7"
     printf "${YELLOW}  │  %-37s│${NC}\n" "$M8"
+    printf "${YELLOW}  │  %-37s│${NC}\n" "$M9"
     printf "${YELLOW}  │  %-37s│${NC}\n" "$M0"
     echo -e "${YELLOW}  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜${NC}"
 }
@@ -298,6 +307,45 @@ do_analisi_sicurezza() {
     fi
 }
 
+do_sgancia_usb() {
+    echo -e "${CYAN}${MSG_EJECT_SYNC}${NC}"
+    sync
+    # Find mount point for USB_ROOT
+    local mount_point
+    mount_point=$(df "$USB_ROOT" 2>/dev/null | tail -1 | awk '{print $NF}')
+    local device
+    device=$(df "$USB_ROOT" 2>/dev/null | tail -1 | awk '{print $1}')
+
+    if [ "$OS_TYPE" = "Darwin" ]; then
+        # macOS: use diskutil to eject
+        if diskutil eject "$device" 2>/dev/null; then
+            echo -e "${GREEN}${MSG_EJECT_OK}${NC}"
+            sleep 3
+            exit 0
+        else
+            echo -e "${RED}${MSG_EJECT_FAIL}${NC}"
+        fi
+    else
+        # Linux: try udisksctl first (no sudo), fallback to umount
+        if command -v udisksctl &>/dev/null; then
+            if udisksctl unmount -b "$device" 2>/dev/null && \
+               udisksctl power-off -b "$device" 2>/dev/null; then
+                echo -e "${GREEN}${MSG_EJECT_OK}${NC}"
+                sleep 3
+                exit 0
+            fi
+        fi
+        # Fallback: try umount (may need sudo)
+        if umount "$mount_point" 2>/dev/null || sudo -n umount "$mount_point" 2>/dev/null; then
+            echo -e "${GREEN}${MSG_EJECT_OK}${NC}"
+            sleep 3
+            exit 0
+        else
+            echo -e "${RED}${MSG_EJECT_FAIL}${NC}"
+        fi
+    fi
+}
+
 # === MAIN ===
 show_banner
 
@@ -317,6 +365,7 @@ while true; do
         6) do_ssh_remoto ;;
         7) do_diagnosi_rete ;;
         8) do_analisi_sicurezza ;;
+        9) do_sgancia_usb ;;
         0)
             echo -e "${GREEN}${MSG_BYE}${NC}"
             exit 0

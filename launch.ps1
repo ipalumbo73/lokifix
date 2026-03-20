@@ -69,6 +69,7 @@ function Set-Language {
             M6 = "[6] Connect to remote server (SSH)"
             M7 = "[7] Network diagnosis"
             M8 = "[8] Security analysis"
+            M9 = "[9] Safely eject USB"
             M0 = "[0] Exit"
             Choice = "Choice"
             LogPath = "Log file path"
@@ -81,6 +82,9 @@ function Set-Language {
             Saved = "[OK] Data saved in"
             NotFound = "[ERROR] File not found:"
             Bye = "Goodbye. No traces left on the system."
+            EjectSync = "Flushing buffers..."
+            EjectOk = "USB safely ejected. You can remove the drive now."
+            EjectFail = "Could not eject the USB drive. Close all open files and try again."
         }
     } else {
         $script:strings = @{
@@ -92,6 +96,7 @@ function Set-Language {
             M6 = "[6] Connetti a server remoto (SSH)"
             M7 = "[7] Diagnosi rete"
             M8 = "[8] Analisi sicurezza"
+            M9 = "[9] Sgancia chiavetta USB"
             M0 = "[0] Esci"
             Choice = "Scelta"
             LogPath = "Percorso del file di log"
@@ -104,6 +109,9 @@ function Set-Language {
             Saved = "[OK] Dati salvati in"
             NotFound = "[ERRORE] File non trovato:"
             Bye = "Arrivederci. Nessuna traccia lasciata sul sistema."
+            EjectSync = "Scaricamento buffer in corso..."
+            EjectOk = "Chiavetta USB sganciata in sicurezza. Puoi rimuoverla."
+            EjectFail = "Impossibile sganciare la chiavetta. Chiudi tutti i file aperti e riprova."
         }
     }
 }
@@ -137,6 +145,7 @@ function Show-Menu {
     Write-Host ("  │  " + $strings.M6.PadRight(37) + "│") -ForegroundColor Yellow
     Write-Host ("  │  " + $strings.M7.PadRight(37) + "│") -ForegroundColor Yellow
     Write-Host ("  │  " + $strings.M8.PadRight(37) + "│") -ForegroundColor Yellow
+    Write-Host ("  │  " + $strings.M9.PadRight(37) + "│") -ForegroundColor Yellow
     Write-Host ("  │  " + $strings.M0.PadRight(37) + "│") -ForegroundColor Yellow
     Write-Host "  └─────────────────────────────────────────┘" -ForegroundColor Yellow
 }
@@ -231,6 +240,30 @@ function Start-AnalisiSicurezza {
     Invoke-Claude "Esegui un'analisi di sicurezza COMPLETA e AUTONOMA di questo sistema Windows senza chiedere conferma. Esegui tutti i controlli in sequenza automaticamente. Controlla: utenti e gruppi locali, policy password, servizi in esecuzione come SYSTEM, porte aperte, firewall, antivirus, aggiornamenti mancanti, share di rete, task schedulati sospetti, autorun, permessi cartelle condivise, RDP, SMBv1, audit policy. NON chiedere conferma, NON fermarti tra un controllo e l'altro. Alla fine produci un report strutturato con severita (CRITICO/ALTO/MEDIO/BASSO) e remediation per ogni problema trovato."
 }
 
+function Start-EjectUSB {
+    Write-Host $strings.EjectSync -ForegroundColor Cyan
+    $driveLetter = $UsbRoot.Substring(0, 2)
+    try {
+        $shell = New-Object -ComObject Shell.Application
+        $drive = $shell.Namespace(17).ParseName("$driveLetter\")
+        if ($drive) {
+            $drive.InvokeVerb("Eject")
+            Start-Sleep -Seconds 3
+            if (Test-Path $UsbRoot) {
+                Write-Host $strings.EjectFail -ForegroundColor Red
+            } else {
+                Write-Host $strings.EjectOk -ForegroundColor Green
+                Start-Sleep -Seconds 3
+                exit 0
+            }
+        } else {
+            Write-Host $strings.EjectFail -ForegroundColor Red
+        }
+    } catch {
+        Write-Host $strings.EjectFail -ForegroundColor Red
+    }
+}
+
 # === MAIN LOOP ===
 Show-Banner
 
@@ -260,6 +293,7 @@ do {
         "6" { Start-SSHRemoto }
         "7" { Start-DiagnosiRete }
         "8" { Start-AnalisiSicurezza }
+        "9" { Start-EjectUSB }
         "0" { Write-Host $strings.Bye -ForegroundColor Green }
     }
 } while ($choice -ne "0")
