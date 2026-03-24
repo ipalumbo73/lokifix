@@ -216,17 +216,7 @@ show_menu() {
 
 # === FUNZIONI ===
 do_interattivo() {
-    echo -e "${GREEN}Sessione interattiva LokiFix. Scrivi /exit per tornare al menu.${NC}"
-    echo ""
-    while true; do
-        echo -n -e "${GREEN}LokiFix> ${NC}"
-        read -r user_input
-        if [ "$user_input" = "/exit" ] || [ "$user_input" = "exit" ]; then break; fi
-        if [ -z "$user_input" ]; then continue; fi
-        echo ""
-        claude -p "$LOKI_PREFIX $user_input"
-        echo ""
-    done
+    claude -s "$LOKI_PREFIX"
 }
 
 do_diagnosi() {

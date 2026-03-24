@@ -169,17 +169,7 @@ function Invoke-LokiFix {
 }
 
 function Start-Interattivo {
-    Write-Host "  Sessione interattiva LokiFix. Scrivi /exit per tornare al menu." -ForegroundColor Green
-    Write-Host ""
-    while ($true) {
-        Write-Host "LokiFix> " -ForegroundColor Green -NoNewline
-        $userInput = Read-Host
-        if ($userInput -eq "/exit" -or $userInput -eq "exit") { break }
-        if ([string]::IsNullOrWhiteSpace($userInput)) { continue }
-        Write-Host ""
-        Invoke-LokiFix $userInput
-        Write-Host ""
-    }
+    & $claudeBin -s "$LokiPrefix"
 }
 
 function Start-Diagnosi {

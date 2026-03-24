@@ -169,19 +169,7 @@ goto menu
 
 :interattivo
 echo.
-powershell -NoProfile -Command "Write-Host '%MSG_REPL_WELCOME%' -F Green"
-echo.
-:interattivo_loop
-set "USER_INPUT="
-set /p "USER_INPUT=LokiFix> "
-if /i "%USER_INPUT%"=="/exit" goto interattivo_end
-if /i "%USER_INPUT%"=="exit" goto interattivo_end
-if "%USER_INPUT%"=="" goto interattivo_loop
-echo.
-call "%CLAUDE_BIN%" -p "%LOKI_PREFIX% %USER_INPUT%"
-echo.
-goto interattivo_loop
-:interattivo_end
+call "%CLAUDE_BIN%" -s "%LOKI_PREFIX%"
 echo.
 echo %MSG_BACK%
 echo.
