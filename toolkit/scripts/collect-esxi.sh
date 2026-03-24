@@ -133,8 +133,8 @@ if [ $? -eq 0 ]; then
     echo "[COMPLETATO] Report salvato: $OUTPUT_FILE"
     echo "  Dimensione: ${FILE_SIZE} KB"
     echo ""
-    echo "Ora puoi analizzare il report con Claude Code:"
-    echo "  claude -p \"Analizza questo report ESXi e identifica problemi: $OUTPUT_FILE\""
+    echo "Ora puoi analizzare il report con LokiFix:"
+    echo "  Apri LokiFix e usa l'opzione [3] Analizza file di log con: $OUTPUT_FILE"
 else
     echo ""
     echo "[ERRORE] Connessione SSH fallita verso $ESXI_HOST"

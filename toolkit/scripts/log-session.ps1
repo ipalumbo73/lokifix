@@ -1,4 +1,4 @@
-function Start-WolfixLog {
+function Start-LokiFixLog {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -16,24 +16,24 @@ function Start-WolfixLog {
 
     $hostname = $env:COMPUTERNAME
     $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
-    $filename = "wolfix_${hostname}_${timestamp}.log"
+    $filename = "lokifix_${hostname}_${timestamp}.log"
     $logPath = Join-Path $OutputDir $filename
 
     Start-Transcript -Path $logPath -Append | Out-Null
 
-    Write-Host "WolfixLog started: $logPath"
+    Write-Host "LokiFixLog started: $logPath"
     Write-Host "Session type: $SessionType"
 
     return $logPath
 }
 
-function Stop-WolfixLog {
+function Stop-LokiFixLog {
     [CmdletBinding()]
     param()
 
     try {
         Stop-Transcript | Out-Null
-        Write-Host 'WolfixLog stopped.'
+        Write-Host 'LokiFixLog stopped.'
     }
     catch {
         Write-Warning "No active transcript to stop: $_"

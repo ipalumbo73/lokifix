@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Wolfix - Safe USB Eject Script
+    LokiFix - Safe USB Eject Script
     Three-stage approach: CM_Request_Device_Eject, then elevated
     Lock+Dismount+Eject, then native Windows dialog as last resort.
 .PARAMETER DriveLetter

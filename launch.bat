@@ -1,18 +1,29 @@
 @echo off
-title Wolfix - AI Diagnostic Toolkit
+title LokiFix - Diagnostic Toolkit
+chcp 65001 >nul 2>&1
 
 set "USB_ROOT=%~dp0"
 set "USB_ROOT=%USB_ROOT:~0,-1%"
 
-echo.
-echo  ============================================
-echo              W O L F I X
-echo         ^>_ AI Problem Solver
-echo           with Claude Code
-echo  ============================================
-echo.
-echo   [I] Italiano
-echo   [E] English
+set "LOKI_PREFIX=Sei LokiFix, un motore diagnostico portatile creato per tecnici IT. Non menzionare mai Claude, Anthropic, o modelli di linguaggio AI. Se ti chiedono chi sei, rispondi che sei LokiFix. Rispondi sempre in modo professionale e utile."
+
+powershell -NoProfile -Command ^
+  "Write-Host ''; " ^
+  "Write-Host '  ============================================' -F Green; " ^
+  "Write-Host '       _       ____  _  __ _____ ______ _  __' -F Green; " ^
+  "Write-Host '      | |     / __ \| |/ /|_   _|  ____|\ \/ /' -F Green; " ^
+  "Write-Host '      | |    | |  | | '' /   | | | |__    \  / ' -F Green; " ^
+  "Write-Host '      | |    | |  | |  <    | | |  __|   /  \ ' -F Green; " ^
+  "Write-Host '      | |____| |__| | . \  _| |_| |    / /\ \' -F Green; " ^
+  "Write-Host '      |______|\____/|_|\_\|_____|_|   /_/  \_\' -F Green; " ^
+  "Write-Host ''; " ^
+  "Write-Host '        >_ AI Problem Solver with Anthropic' -F Green; " ^
+  "Write-Host ''; " ^
+  "Write-Host '        v0.2.0' -F DarkGray; " ^
+  "Write-Host '  ============================================' -F Green; " ^
+  "Write-Host ''; " ^
+  "Write-Host '  [I] Italiano  [E] English' -F White; " ^
+  "Write-Host ''"
 echo.
 set "LANG="
 set /p "LANG=Language / Lingua: "
@@ -21,7 +32,7 @@ goto set_it
 
 :set_en
 set "M1=[1] Full system diagnosis"
-set "M2=[2] Interactive Claude Code"
+set "M2=[2] Interactive session"
 set "M3=[3] Analyze log file"
 set "M4=[4] Guided fix"
 set "M5=[5] Collect data for offline analysis"
@@ -48,11 +59,12 @@ set "MSG_NOTFOUND=File not found."
 set "MSG_EJECT_SYNC=Flushing buffers..."
 set "MSG_EJECT_OK=USB safely ejected. You can remove the drive now."
 set "MSG_EJECT_FAIL=Could not eject the USB drive. Close all open files and try again."
+set "LOKI_PREFIX=You are LokiFix, a portable diagnostic engine built for IT technicians. Never mention Claude, Anthropic, or AI language models. If asked who you are, say you are LokiFix. Always be professional and helpful."
 goto env_setup
 
 :set_it
 set "M1=[1] Diagnosi completa del sistema"
-set "M2=[2] Claude Code interattivo"
+set "M2=[2] Sessione interattiva"
 set "M3=[3] Analizza file di log"
 set "M4=[4] Fix guidato"
 set "M5=[5] Raccogli dati per analisi offline"
@@ -92,13 +104,13 @@ if not exist "%NODE_DIR%\node.exe" (
 
 set "CLAUDE_BIN=%USB_ROOT%\claude-code\claude.cmd"
 if not exist "%CLAUDE_BIN%" (
-    echo [*] claude.cmd non trovato, tento auto-repair...
+    echo [*] Motore non trovato, tento auto-repair...
     for %%F in ("%USB_ROOT%\claude-code\.claude.cmd-*") do (
         copy "%%F" "%CLAUDE_BIN%" >nul 2>&1
-        echo [OK] claude.cmd ripristinato da %%~nxF
+        echo [OK] Motore ripristinato da %%~nxF
         goto claude_ok
     )
-    echo [ERRORE] Claude Code non trovato.
+    echo [ERRORE] Motore LokiFix non trovato.
     echo Esegui prima setup-usb.ps1 per preparare la chiavetta.
     pause
     exit /b 1
@@ -120,18 +132,11 @@ echo %MSG_OK%
 echo.
 
 :menu
-echo  --------------------------------------------
-echo    %M1%
-echo    %M2%
-echo    %M3%
-echo    %M4%
-echo    %M5%
-echo    %M6%
-echo    %M7%
-echo    %M8%
-echo    %M9%
-echo    %M0%
-echo  --------------------------------------------
+powershell -NoProfile -Command ^
+  "$items = @('%M1%','%M2%','%M3%','%M4%','%M5%','%M6%','%M7%','%M8%','%M9%','%M0%'); " ^
+  "Write-Host '  +-----------------------------------------+' -F Green; " ^
+  "foreach ($i in $items) { Write-Host ('  |  ' + $i.PadRight(37) + '|') -F Green }; " ^
+  "Write-Host '  +-----------------------------------------+' -F Green"
 echo.
 set "CHOICE="
 set /p "CHOICE=%MSG_CHOICE%"
@@ -155,7 +160,7 @@ echo.
 echo %MSG_DIAGSTART%
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%" "Diagnostica questo sistema Windows: servizi, disco, RAM, CPU, Event Log, rete, DNS, aggiornamenti. Proponi fix e chiedi conferma."
+call "%CLAUDE_BIN%" "%LOKI_PREFIX% Diagnostica questo sistema Windows: servizi, disco, RAM, CPU, Event Log, rete, DNS, aggiornamenti. Proponi fix e chiedi conferma."
 echo.
 echo %MSG_BACK%
 echo.
@@ -165,7 +170,7 @@ goto menu
 echo.
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%"
+call "%CLAUDE_BIN%" --system-prompt "%LOKI_PREFIX%"
 echo.
 echo %MSG_BACK%
 echo.
@@ -182,7 +187,7 @@ if not exist "%LOGPATH%" (
 )
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%" "Analizza questo file di log, identifica errori e anomalie. File: %LOGPATH%"
+call "%CLAUDE_BIN%" "%LOKI_PREFIX% Analizza questo file di log, identifica errori e anomalie. File: %LOGPATH%"
 echo.
 echo %MSG_BACK%
 echo.
@@ -195,7 +200,7 @@ set /p "PROBLEMA=%MSG_PROBLEM%"
 if "%PROBLEMA%"=="" goto menu
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%" "Diagnostica e ripara questo problema: %PROBLEMA%. Esegui comandi diagnostici, identifica la causa, proponi il fix e chiedi conferma prima di applicarlo."
+call "%CLAUDE_BIN%" "%LOKI_PREFIX% Diagnostica e ripara questo problema: %PROBLEMA%. Esegui comandi diagnostici, identifica la causa, proponi il fix e chiedi conferma prima di applicarlo."
 echo.
 echo %MSG_BACK%
 echo.
@@ -216,7 +221,7 @@ set /p "SSH_HOST=%MSG_SSHHOST%"
 if "%SSH_HOST%"=="" goto menu
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%" "Collegati via SSH a %SSH_HOST% e diagnostica il sistema remoto. Proponi fix e chiedi conferma."
+call "%CLAUDE_BIN%" "%LOKI_PREFIX% Collegati via SSH a %SSH_HOST% e diagnostica il sistema remoto. Proponi fix e chiedi conferma."
 echo.
 echo %MSG_BACK%
 echo.
@@ -227,7 +232,7 @@ echo.
 echo %MSG_NETSTART%
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%" "Esegui una diagnosi completa della rete su questo sistema Windows: interfacce di rete, configurazione IP, DNS, gateway, tabella routing, porte in ascolto, connessioni attive, firewall rules, test connettivita' verso internet e DNS. Identifica problemi e proponi fix."
+call "%CLAUDE_BIN%" "%LOKI_PREFIX% Esegui una diagnosi completa della rete su questo sistema Windows: interfacce di rete, configurazione IP, DNS, gateway, tabella routing, porte in ascolto, connessioni attive, firewall rules, test connettivita' verso internet e DNS. Identifica problemi e proponi fix."
 echo.
 echo %MSG_BACK%
 echo.
@@ -238,7 +243,7 @@ echo.
 echo %MSG_SECSTART%
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%" "Esegui un'analisi di sicurezza COMPLETA e AUTONOMA di questo sistema Windows senza chiedere conferma. Esegui tutti i controlli in sequenza automaticamente. Controlla: utenti e gruppi locali, policy password, servizi in esecuzione come SYSTEM, porte aperte, firewall, antivirus, aggiornamenti mancanti, share di rete, task schedulati sospetti, autorun, permessi cartelle condivise, RDP, SMBv1, audit policy. NON chiedere conferma, NON fermarti tra un controllo e l'altro. Alla fine produci un report strutturato con severita (CRITICO/ALTO/MEDIO/BASSO) e remediation per ogni problema trovato."
+call "%CLAUDE_BIN%" "%LOKI_PREFIX% Esegui un'analisi di sicurezza COMPLETA e AUTONOMA di questo sistema Windows senza chiedere conferma. Esegui tutti i controlli in sequenza automaticamente. Controlla: utenti e gruppi locali, policy password, servizi in esecuzione come SYSTEM, porte aperte, firewall, antivirus, aggiornamenti mancanti, share di rete, task schedulati sospetti, autorun, permessi cartelle condivise, RDP, SMBv1, audit policy. NON chiedere conferma, NON fermarti tra un controllo e l'altro. Alla fine produci un report strutturato con severita (CRITICO/ALTO/MEDIO/BASSO) e remediation per ogni problema trovato."
 echo.
 echo %MSG_BACK%
 echo.
@@ -249,9 +254,9 @@ echo.
 echo %MSG_EJECT_SYNC%
 set "USB_DRIVE=%USB_ROOT:~0,2%"
 set "USB_LETTER=%USB_ROOT:~0,1%"
-copy "%USB_ROOT%\wolfix-eject.ps1" "%TEMP%\wolfix-eject.ps1" >nul 2>&1
+copy "%USB_ROOT%\lokifix-eject.ps1" "%TEMP%\lokifix-eject.ps1" >nul 2>&1
 cd /d "%TEMP%"
-start "" /D "%TEMP%" powershell -NoProfile -ExecutionPolicy Bypass -File "%TEMP%\wolfix-eject.ps1" -DriveLetter "%USB_LETTER%" -MsgOk "%MSG_EJECT_OK%" -MsgFail "%MSG_EJECT_FAIL%"
+start "" /D "%TEMP%" powershell -NoProfile -ExecutionPolicy Bypass -File "%TEMP%\lokifix-eject.ps1" -DriveLetter "%USB_LETTER%" -MsgOk "%MSG_EJECT_OK%" -MsgFail "%MSG_EJECT_FAIL%"
 exit
 
 :fine

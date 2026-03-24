@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    Wolfix - AI Diagnostic Toolkit - Launcher PowerShell.
+    LokiFix - AI Problem Solver with Anthropic - Launcher PowerShell.
     Offre le stesse funzionalita' di launch.bat con maggiore flessibilita'.
 
 .DESCRIPTION
-    Configura l'ambiente temporaneo, rileva il sistema, e lancia Claude Code
-    dalla chiavetta USB senza installare nulla sulla macchina target.
+    Configura l'ambiente temporaneo, rileva il sistema, e lancia il motore
+    diagnostico dalla chiavetta USB senza installare nulla sulla macchina target.
 #>
 
 param(
@@ -15,6 +15,11 @@ param(
 
 $ErrorActionPreference = "Continue"
 $UsbRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# === LOKIFIX IDENTITY PREFIX ===
+$LokiPrefixIT = "Sei LokiFix, un motore diagnostico portatile creato per tecnici IT. Non menzionare mai Claude, Anthropic, o modelli di linguaggio AI. Se ti chiedono chi sei, rispondi che sei LokiFix. Rispondi sempre in modo professionale e utile."
+$LokiPrefixEN = "You are LokiFix, a portable diagnostic engine built for IT technicians. Never mention Claude, Anthropic, or AI language models. If asked who you are, say you are LokiFix. Always be professional and helpful."
+$LokiPrefix = $LokiPrefixIT
 
 # === CONFIGURAZIONE AMBIENTE ===
 $env:PATH = "$UsbRoot\runtime\node-win-x64;$UsbRoot\claude-code\bin;$env:PATH"
@@ -38,13 +43,13 @@ if (-not (Test-Path $nodeBin)) {
     exit 1
 }
 if (-not (Test-Path $claudeBin)) {
-    Write-Host "[*] claude.cmd non trovato, tento auto-repair..." -ForegroundColor Yellow
+    Write-Host "[*] Motore non trovato, tento auto-repair..." -ForegroundColor Yellow
     $tempFiles = Get-ChildItem (Join-Path $UsbRoot "claude-code") -Filter ".claude.cmd-*" -ErrorAction SilentlyContinue
     if ($tempFiles) {
         Copy-Item $tempFiles[0].FullName $claudeBin -Force
-        Write-Host "[OK] claude.cmd ripristinato da $($tempFiles[0].Name)" -ForegroundColor Green
+        Write-Host "[OK] Motore ripristinato da $($tempFiles[0].Name)" -ForegroundColor Green
     } else {
-        Write-Host "[ERRORE] Claude Code non trovato. Esegui setup-usb.ps1 prima." -ForegroundColor Red
+        Write-Host "[ERRORE] Motore LokiFix non trovato. Esegui setup-usb.ps1 prima." -ForegroundColor Red
         exit 1
     }
 }
@@ -60,9 +65,10 @@ $strings = @{}
 function Set-Language {
     param([string]$Lang)
     if ($Lang -eq "en") {
+        $script:LokiPrefix = $script:LokiPrefixEN
         $script:strings = @{
             M1 = "[1] Full system diagnosis"
-            M2 = "[2] Interactive Claude Code"
+            M2 = "[2] Interactive session"
             M3 = "[3] Analyze log file"
             M4 = "[4] Guided fix (describe problem)"
             M5 = "[5] Collect data for offline analysis"
@@ -87,9 +93,10 @@ function Set-Language {
             EjectFail = "Could not eject the USB drive. Close all open files and try again."
         }
     } else {
+        $script:LokiPrefix = $script:LokiPrefixIT
         $script:strings = @{
             M1 = "[1] Diagnosi completa del sistema"
-            M2 = "[2] Claude Code interattivo"
+            M2 = "[2] Sessione interattiva"
             M3 = "[3] Analizza file di log"
             M4 = "[4] Fix guidato (descrivi problema)"
             M5 = "[5] Raccogli dati per analisi offline"
@@ -118,11 +125,18 @@ function Set-Language {
 
 function Show-Banner {
     Write-Host ""
-    Write-Host "  â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—" -ForegroundColor Cyan
-    Write-Host "  â•’            W O L F I X                    â•’" -ForegroundColor Cyan
-    Write-Host "  ║       >_ AI Problem Solver                ║" -ForegroundColor Cyan
-    Write-Host "  ║         with Claude Code                  ║" -ForegroundColor Cyan
-    Write-Host "  â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•" -ForegroundColor Cyan
+    Write-Host "  ============================================" -ForegroundColor Green
+    Write-Host "       _       ____  _  __ _____ ______ _  __ " -ForegroundColor Green
+    Write-Host "      | |     / __ \| |/ /|_   _|  ____|\ \/ /" -ForegroundColor Green
+    Write-Host "      | |    | |  | | ' /   | | | |__    \  / " -ForegroundColor Green
+    Write-Host "      | |    | |  | |  <    | | |  __|   /  \ " -ForegroundColor Green
+    Write-Host "      | |____| |__| | . \  _| |_| |    / /\ \" -ForegroundColor Green
+    Write-Host "      |______|\____/|_|\_\|_____|_|   /_/  \_\" -ForegroundColor Green
+    Write-Host "" -ForegroundColor Green
+    Write-Host "        >_ AI Problem Solver with Anthropic" -ForegroundColor Green
+    Write-Host "" -ForegroundColor Green
+    Write-Host "        v0.2.0" -ForegroundColor DarkGray
+    Write-Host "  ============================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "  Sistema: $($osInfo.Caption)" -ForegroundColor Gray
     Write-Host "  CPU:     $($cpuInfo.Name)" -ForegroundColor Gray
@@ -136,29 +150,29 @@ function Show-Banner {
 }
 
 function Show-Menu {
-    Write-Host "  ┌─────────────────────────────────────────┐" -ForegroundColor Yellow
-    Write-Host ("  │  " + $strings.M1.PadRight(37) + "│") -ForegroundColor Yellow
-    Write-Host ("  │  " + $strings.M2.PadRight(37) + "│") -ForegroundColor Yellow
-    Write-Host ("  │  " + $strings.M3.PadRight(37) + "│") -ForegroundColor Yellow
-    Write-Host ("  │  " + $strings.M4.PadRight(37) + "│") -ForegroundColor Yellow
-    Write-Host ("  │  " + $strings.M5.PadRight(37) + "│") -ForegroundColor Yellow
-    Write-Host ("  │  " + $strings.M6.PadRight(37) + "│") -ForegroundColor Yellow
-    Write-Host ("  │  " + $strings.M7.PadRight(37) + "│") -ForegroundColor Yellow
-    Write-Host ("  │  " + $strings.M8.PadRight(37) + "│") -ForegroundColor Yellow
-    Write-Host ("  │  " + $strings.M9.PadRight(37) + "│") -ForegroundColor Yellow
-    Write-Host ("  │  " + $strings.M0.PadRight(37) + "│") -ForegroundColor Yellow
-    Write-Host "  └─────────────────────────────────────────┘" -ForegroundColor Yellow
+    Write-Host "  +-----------------------------------------+" -ForegroundColor Green
+    Write-Host ("  |  " + $strings.M1.PadRight(37) + "|") -ForegroundColor Green
+    Write-Host ("  |  " + $strings.M2.PadRight(37) + "|") -ForegroundColor Green
+    Write-Host ("  |  " + $strings.M3.PadRight(37) + "|") -ForegroundColor Green
+    Write-Host ("  |  " + $strings.M4.PadRight(37) + "|") -ForegroundColor Green
+    Write-Host ("  |  " + $strings.M5.PadRight(37) + "|") -ForegroundColor Green
+    Write-Host ("  |  " + $strings.M6.PadRight(37) + "|") -ForegroundColor Green
+    Write-Host ("  |  " + $strings.M7.PadRight(37) + "|") -ForegroundColor Green
+    Write-Host ("  |  " + $strings.M8.PadRight(37) + "|") -ForegroundColor Green
+    Write-Host ("  |  " + $strings.M9.PadRight(37) + "|") -ForegroundColor Green
+    Write-Host ("  |  " + $strings.M0.PadRight(37) + "|") -ForegroundColor Green
+    Write-Host "  +-----------------------------------------+" -ForegroundColor Green
 }
 
-function Invoke-Claude {
+function Invoke-LokiFix {
     param([string]$Prompt)
-    & $claudeBin -p $Prompt
+    & $claudeBin -p "$LokiPrefix $Prompt"
 }
 
 function Start-Diagnosi {
     Write-Host $strings.DiagStart -ForegroundColor Green
     $prompt = @"
-Sei un esperto di diagnostica sistemi Windows. Questo sistema e':
+Questo sistema e':
 - OS: $($osInfo.Caption)
 - Versione: $($osInfo.Version)
 - RAM: ${ramGB} GB
@@ -180,7 +194,7 @@ Per ogni problema trovato:
 - Chiedi conferma PRIMA di eseguirlo
 - Dopo il fix, verifica che funziona
 "@
-    Invoke-Claude $prompt
+    Invoke-LokiFix $prompt
 }
 
 function Start-AnalisiLog {
@@ -189,13 +203,12 @@ function Start-AnalisiLog {
         Write-Host "$($strings.NotFound) $logPath" -ForegroundColor Red
         return
     }
-    Invoke-Claude "Analizza il file di log '$logPath'. Identifica errori, warning, pattern anomali. Fornisci un riepilogo strutturato dei problemi e suggerisci soluzioni concrete."
+    Invoke-LokiFix "Analizza il file di log '$logPath'. Identifica errori, warning, pattern anomali. Fornisci un riepilogo strutturato dei problemi e suggerisci soluzioni concrete."
 }
 
 function Start-FixGuidato {
     $problema = Read-Host $strings.Problem
     $prompt = @"
-Sei un esperto di diagnostica e riparazione sistemi Windows.
 Sistema: $($osInfo.Caption) ($($osInfo.Version)) - $($env:COMPUTERNAME)
 
 Problema segnalato: $problema
@@ -209,7 +222,7 @@ Workflow:
 6. Verifica che il problema sia risolto
 7. Documenta cosa hai fatto
 "@
-    Invoke-Claude $prompt
+    Invoke-LokiFix $prompt
 }
 
 function Start-RaccoltaDati {
@@ -226,25 +239,24 @@ function Start-RaccoltaDati {
 
 function Start-SSHRemoto {
     $sshHost = Read-Host $strings.SshHost
-    # Modalita interattiva: Claude puo gestire la sessione SSH iterativamente
-    & $claudeBin "Collegati via SSH a $sshHost. Diagnostica il sistema remoto: OS, servizi, disco, memoria, log errori, sicurezza. Per ogni problema proponi il fix e chiedi conferma."
+    & $claudeBin "$LokiPrefix Collegati via SSH a $sshHost. Diagnostica il sistema remoto: OS, servizi, disco, memoria, log errori, sicurezza. Per ogni problema proponi il fix e chiedi conferma."
 }
 
 function Start-DiagnosiRete {
     Write-Host $strings.NetStart -ForegroundColor Green
-    Invoke-Claude "Esegui una diagnosi completa della rete su questo sistema Windows: interfacce di rete, configurazione IP, DNS, gateway, tabella routing, porte in ascolto, connessioni attive, firewall rules, test connettivita' verso internet e DNS. Identifica problemi e proponi fix."
+    Invoke-LokiFix "Esegui una diagnosi completa della rete su questo sistema Windows: interfacce di rete, configurazione IP, DNS, gateway, tabella routing, porte in ascolto, connessioni attive, firewall rules, test connettivita' verso internet e DNS. Identifica problemi e proponi fix."
 }
 
 function Start-AnalisiSicurezza {
     Write-Host $strings.SecStart -ForegroundColor Green
-    Invoke-Claude "Esegui un'analisi di sicurezza COMPLETA e AUTONOMA di questo sistema Windows senza chiedere conferma. Esegui tutti i controlli in sequenza automaticamente. Controlla: utenti e gruppi locali, policy password, servizi in esecuzione come SYSTEM, porte aperte, firewall, antivirus, aggiornamenti mancanti, share di rete, task schedulati sospetti, autorun, permessi cartelle condivise, RDP, SMBv1, audit policy. NON chiedere conferma, NON fermarti tra un controllo e l'altro. Alla fine produci un report strutturato con severita (CRITICO/ALTO/MEDIO/BASSO) e remediation per ogni problema trovato."
+    Invoke-LokiFix "Esegui un'analisi di sicurezza COMPLETA e AUTONOMA di questo sistema Windows senza chiedere conferma. Esegui tutti i controlli in sequenza automaticamente. Controlla: utenti e gruppi locali, policy password, servizi in esecuzione come SYSTEM, porte aperte, firewall, antivirus, aggiornamenti mancanti, share di rete, task schedulati sospetti, autorun, permessi cartelle condivise, RDP, SMBv1, audit policy. NON chiedere conferma, NON fermarti tra un controllo e l'altro. Alla fine produci un report strutturato con severita (CRITICO/ALTO/MEDIO/BASSO) e remediation per ogni problema trovato."
 }
 
 function Start-EjectUSB {
     Write-Host $strings.EjectSync -ForegroundColor Cyan
     $driveLetter = $UsbRoot.Substring(0, 1)
-    $ejectSrc = Join-Path $UsbRoot "wolfix-eject.ps1"
-    $ejectDst = Join-Path $env:TEMP "wolfix-eject.ps1"
+    $ejectSrc = Join-Path $UsbRoot "lokifix-eject.ps1"
+    $ejectDst = Join-Path $env:TEMP "lokifix-eject.ps1"
     Copy-Item $ejectSrc $ejectDst -Force
     Set-Location $env:TEMP
     Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ejectDst`" -DriveLetter `"$driveLetter`" -MsgOk `"$($strings.EjectOk)`" -MsgFail `"$($strings.EjectFail)`""
@@ -257,7 +269,7 @@ Show-Banner
 if ($Modalita -ne "menu") {
     switch ($Modalita) {
         "diagnosi"    { Start-Diagnosi }
-        "interattivo" { & $claudeBin }
+        "interattivo" { & $claudeBin --system-prompt $LokiPrefix }
         "log"         { Start-AnalisiLog }
         "fix"         { Start-FixGuidato }
         "raccogli"    { Start-RaccoltaDati }
@@ -273,7 +285,7 @@ do {
 
     switch ($choice) {
         "1" { Start-Diagnosi }
-        "2" { & $claudeBin }
+        "2" { & $claudeBin --system-prompt $LokiPrefix }
         "3" { Start-AnalisiLog }
         "4" { Start-FixGuidato }
         "5" { Start-RaccoltaDati }

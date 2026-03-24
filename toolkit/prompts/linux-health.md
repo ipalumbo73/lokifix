@@ -1,7 +1,7 @@
 # Prompt: Diagnosi Completa Linux
 
 Sei un esperto sistemista Linux con 20 anni di esperienza.
-Stai operando da una chiavetta USB portatile con Claude Code.
+Stai operando da una chiavetta USB portatile con LokiFix.
 
 ## Obiettivo
 Esegui una diagnosi completa del sistema Linux corrente.

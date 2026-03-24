@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Setup script per preparare la chiavetta USB con Claude Code Portable.
+    LokiFix - Setup script per preparare la chiavetta USB.
     Esegui questo script UNA VOLTA dal tuo PC principale per configurare la chiavetta.
 
 .PARAMETER UsbDrive
@@ -38,7 +38,7 @@ if ($freeSpace -lt $requiredSpace) {
     exit 1
 }
 
-Write-Host "=== CLAUDE CODE PORTABLE - SETUP ===" -ForegroundColor Cyan
+Write-Host "=== LOKIFIX - SETUP CHIAVETTA ===" -ForegroundColor Cyan
 Write-Host "Drive USB: ${UsbDrive}:" -ForegroundColor Yellow
 Write-Host "Node.js version: $NodeVersion" -ForegroundColor Yellow
 Write-Host ""
@@ -213,8 +213,8 @@ if (-not (Test-Path (Join-Path $gitDest "bin\bash.exe"))) {
     Write-Host "  Gia' presente, skip." -ForegroundColor Yellow
 }
 
-# --- Installazione Claude Code ---
-Write-Host "[7/9] Installazione Claude Code..." -ForegroundColor Green
+# --- Installazione motore diagnostico ---
+Write-Host "[7/9] Installazione motore LokiFix..." -ForegroundColor Green
 
 $nodePath = Join-Path $UsbRoot "runtime\node-win-x64\node.exe"
 $npmPath = Join-Path $UsbRoot "runtime\node-win-x64\npm.cmd"
@@ -224,7 +224,7 @@ $claudeTempDir = Join-Path $env:TEMP "claude-code-install"
 $env:PATH = "$(Join-Path $UsbRoot 'runtime\node-win-x64');$env:PATH"
 
 # Installa prima in locale (exFAT corrompe npm install diretto)
-Write-Host "  Installazione @anthropic-ai/claude-code in locale..."
+Write-Host "  Installazione motore diagnostico in locale..."
 if (Test-Path $claudeTempDir) { Remove-Item $claudeTempDir -Recurse -Force }
 & $npmPath install -g @anthropic-ai/claude-code --prefix $claudeTempDir 2>&1 | ForEach-Object {
     if ($_ -match "added|updated|claude") { Write-Host "  $_" -ForegroundColor Gray }
@@ -236,8 +236,8 @@ Write-Host "  Copia su chiavetta USB..."
 Remove-Item $claudeTempDir -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host "  OK" -ForegroundColor Green
 
-# --- Login Claude ---
-Write-Host "[8/9] Configurazione autenticazione..." -ForegroundColor Green
+# --- Autenticazione ---
+Write-Host "[8/9] Configurazione autenticazione LokiFix..." -ForegroundColor Green
 
 $env:CLAUDE_CONFIG_DIR = Join-Path $UsbRoot "config"
 $claudeBin = Join-Path $claudeCodeDir "bin\claude.cmd"
@@ -246,7 +246,7 @@ if (Test-Path $claudeBin) {
     Write-Host "  Avvio login... Segui le istruzioni nel browser." -ForegroundColor Yellow
     & $claudeBin login
 } else {
-    Write-Host "  ATTENZIONE: claude.cmd non trovato in $claudeBin" -ForegroundColor Red
+    Write-Host "  ATTENZIONE: Motore non trovato in $claudeBin" -ForegroundColor Red
     Write-Host "  Esegui il login manualmente dopo il setup." -ForegroundColor Yellow
 }
 
@@ -258,6 +258,7 @@ $filesToCopy = @(
     "launch.bat",
     "launch.ps1",
     "launch.sh",
+    "lokifix-eject.ps1",
     "toolkit\prompts\windows-health.md",
     "toolkit\prompts\linux-health.md",
     "toolkit\prompts\esxi-health.md",
@@ -286,12 +287,12 @@ foreach ($file in $filesToCopy) {
 
 # --- Riepilogo ---
 Write-Host ""
-Write-Host "=== SETUP COMPLETATO ===" -ForegroundColor Cyan
+Write-Host "=== LOKIFIX - SETUP COMPLETATO ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Struttura chiavetta ${UsbDrive}:\" -ForegroundColor Yellow
-Write-Host "  runtime\         - Node.js portable (Win + Linux + macOS)"
+Write-Host "  runtime\         - Runtime portable (Win + Linux + macOS)"
 Write-Host "  runtime\git\     - Git Portable (per Windows senza Git)"
-Write-Host "  claude-code\     - Claude Code CLI"
+Write-Host "  claude-code\     - Motore diagnostico LokiFix"
 Write-Host "  config\          - Configurazione e credenziali"
 Write-Host "  toolkit\         - Prompt diagnostici e script"
 Write-Host ""

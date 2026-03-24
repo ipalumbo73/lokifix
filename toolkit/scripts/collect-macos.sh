@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Wolfix - macOS Data Collection Script
+# LokiFix - macOS Data Collection Script
 # Collects diagnostic data for offline analysis.
 #
 
@@ -10,7 +10,7 @@ OUTPUT_DIR="${1:-.}"
 mkdir -p "$OUTPUT_DIR"
 HOSTNAME_VAL=$(hostname -s)
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-OUTPUT_FILE="$OUTPUT_DIR/wolfix_${HOSTNAME_VAL}_${TIMESTAMP}.txt"
+OUTPUT_FILE="$OUTPUT_DIR/lokifix_${HOSTNAME_VAL}_${TIMESTAMP}.txt"
 
 section() {
     echo "" >> "$OUTPUT_FILE"
@@ -20,7 +20,7 @@ section() {
     echo "" >> "$OUTPUT_FILE"
 }
 
-echo "Wolfix - macOS Data Collection" > "$OUTPUT_FILE"
+echo "LokiFix - macOS Data Collection" > "$OUTPUT_FILE"
 echo "Date: $(date)" >> "$OUTPUT_FILE"
 echo "Host: $HOSTNAME_VAL" >> "$OUTPUT_FILE"
 
