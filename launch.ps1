@@ -125,18 +125,17 @@ function Set-Language {
 
 function Show-Banner {
     Write-Host ""
-    Write-Host "  ============================================" -ForegroundColor Green
-    Write-Host "       _       ____  _  __ _____ ______ _  __ " -ForegroundColor Green
-    Write-Host "      | |     / __ \| |/ /|_   _|  ____|\ \/ /" -ForegroundColor Green
-    Write-Host "      | |    | |  | | ' /   | | | |__    \  / " -ForegroundColor Green
-    Write-Host "      | |    | |  | |  <    | | |  __|   /  \ " -ForegroundColor Green
-    Write-Host "      | |____| |__| | . \  _| |_| |    / /\ \" -ForegroundColor Green
-    Write-Host "      |______|\____/|_|\_\|_____|_|   /_/  \_\" -ForegroundColor Green
+    Write-Host "  ================================================" -ForegroundColor Green
+    Write-Host "   _       ___  _  _____ _____ ___ __  __" -ForegroundColor Green
+    Write-Host "  | |     / _ \| |/ /_ _|  ___|_ _\ \/ /" -ForegroundColor Green
+    Write-Host "  | |    | | | | ' / | || |_   | | \  / " -ForegroundColor Green
+    Write-Host "  | |___ | |_| | . \ | ||  _|  | | /  \ " -ForegroundColor Green
+    Write-Host "  |_____| \___/|_|\_\___|_|   |___/_/\_\" -ForegroundColor Green
     Write-Host "" -ForegroundColor Green
-    Write-Host "        >_ AI Problem Solver with Anthropic" -ForegroundColor Green
+    Write-Host "    >_ AI Problem Solver with Anthropic" -ForegroundColor Green
     Write-Host "" -ForegroundColor Green
-    Write-Host "        v0.2.0" -ForegroundColor DarkGray
-    Write-Host "  ============================================" -ForegroundColor Green
+    Write-Host "    v0.2.0" -ForegroundColor DarkGray
+    Write-Host "  ================================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "  Sistema: $($osInfo.Caption)" -ForegroundColor Gray
     Write-Host "  CPU:     $($cpuInfo.Name)" -ForegroundColor Gray
@@ -167,6 +166,20 @@ function Show-Menu {
 function Invoke-LokiFix {
     param([string]$Prompt)
     & $claudeBin -p "$LokiPrefix $Prompt"
+}
+
+function Start-Interattivo {
+    Write-Host "  Sessione interattiva LokiFix. Scrivi /exit per tornare al menu." -ForegroundColor Green
+    Write-Host ""
+    while ($true) {
+        Write-Host "LokiFix> " -ForegroundColor Green -NoNewline
+        $userInput = Read-Host
+        if ($userInput -eq "/exit" -or $userInput -eq "exit") { break }
+        if ([string]::IsNullOrWhiteSpace($userInput)) { continue }
+        Write-Host ""
+        Invoke-LokiFix $userInput
+        Write-Host ""
+    }
 }
 
 function Start-Diagnosi {
@@ -269,7 +282,7 @@ Show-Banner
 if ($Modalita -ne "menu") {
     switch ($Modalita) {
         "diagnosi"    { Start-Diagnosi }
-        "interattivo" { & $claudeBin --system-prompt $LokiPrefix }
+        "interattivo" { Start-Interattivo }
         "log"         { Start-AnalisiLog }
         "fix"         { Start-FixGuidato }
         "raccogli"    { Start-RaccoltaDati }
@@ -285,7 +298,7 @@ do {
 
     switch ($choice) {
         "1" { Start-Diagnosi }
-        "2" { & $claudeBin --system-prompt $LokiPrefix }
+        "2" { Start-Interattivo }
         "3" { Start-AnalisiLog }
         "4" { Start-FixGuidato }
         "5" { Start-RaccoltaDati }

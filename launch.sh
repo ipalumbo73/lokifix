@@ -169,18 +169,17 @@ set_language "it"
 # === BANNER ===
 show_banner() {
     echo ""
-    echo -e "${GREEN}  ============================================${NC}"
-    echo -e "${GREEN}       _       ____  _  __ _____ ______ _  __ ${NC}"
-    echo -e "${GREEN}      | |     / __ \\| |/ /|_   _|  ____|\ \\/ /${NC}"
-    echo -e "${GREEN}      | |    | |  | | ' /   | | | |__    \\  / ${NC}"
-    echo -e "${GREEN}      | |    | |  | |  <    | | |  __|   /  \\ ${NC}"
-    echo -e "${GREEN}      | |____| |__| | . \\  _| |_| |    / /\\ \\${NC}"
-    echo -e "${GREEN}      |______|\\____/|_|\\_\\|_____|_|   /_/  \\_\\${NC}"
+    echo -e "${GREEN}  ================================================${NC}"
+    echo -e "${GREEN}   _       ___  _  _____ _____ ___ __  __${NC}"
+    echo -e "${GREEN}  | |     / _ \\| |/ /_ _|  ___|_ _\\ \\/ /${NC}"
+    echo -e "${GREEN}  | |    | | | | ' / | || |_   | | \\  / ${NC}"
+    echo -e "${GREEN}  | |___ | |_| | . \\ | ||  _|  | | /  \\ ${NC}"
+    echo -e "${GREEN}  |_____| \\___/|_|\\_\\___|_|   |___/_/\\_\\${NC}"
     echo ""
-    echo -e "${GREEN}        >_ AI Problem Solver with Anthropic${NC}"
+    echo -e "${GREEN}    >_ AI Problem Solver with Anthropic${NC}"
     echo ""
-    echo -e "${DARKGRAY}        v0.2.0${NC}"
-    echo -e "${GREEN}  ============================================${NC}"
+    echo -e "${DARKGRAY}    v0.2.0${NC}"
+    echo -e "${GREEN}  ================================================${NC}"
     echo ""
     echo -e "${GRAY}  Sistema: $OS_NAME${NC}"
     echo -e "${GRAY}  Kernel:  $KERNEL${NC}"
@@ -216,6 +215,20 @@ show_menu() {
 }
 
 # === FUNZIONI ===
+do_interattivo() {
+    echo -e "${GREEN}Sessione interattiva LokiFix. Scrivi /exit per tornare al menu.${NC}"
+    echo ""
+    while true; do
+        echo -n -e "${GREEN}LokiFix> ${NC}"
+        read -r user_input
+        if [ "$user_input" = "/exit" ] || [ "$user_input" = "exit" ]; then break; fi
+        if [ -z "$user_input" ]; then continue; fi
+        echo ""
+        claude -p "$LOKI_PREFIX $user_input"
+        echo ""
+    done
+}
+
 do_diagnosi() {
     echo -e "${GREEN}${MSG_DIAGSTART}${NC}"
     if [ "$OS_TYPE" = "Darwin" ]; then
@@ -376,7 +389,7 @@ while true; do
 
     case "$choice" in
         1) do_diagnosi ;;
-        2) claude --system-prompt "$LOKI_PREFIX" ;;
+        2) do_interattivo ;;
         3) do_analizza_log ;;
         4) do_fix_guidato ;;
         5) do_raccogli_dati ;;

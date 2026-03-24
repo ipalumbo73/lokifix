@@ -1,4 +1,4 @@
-# LokiFix >_ AI Problem Solver with Anthropic
+# LokiFix  >_ AI Problem Solver with Anthropic
 
 **Portable AI-powered diagnostic toolkit for Windows, Linux, macOS, and VMware systems.**
 

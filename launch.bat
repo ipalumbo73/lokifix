@@ -9,18 +9,17 @@ set "LOKI_PREFIX=Sei LokiFix, un motore diagnostico portatile creato per tecnici
 
 powershell -NoProfile -Command ^
   "Write-Host ''; " ^
-  "Write-Host '  ============================================' -F Green; " ^
-  "Write-Host '       _       ____  _  __ _____ ______ _  __' -F Green; " ^
-  "Write-Host '      | |     / __ \| |/ /|_   _|  ____|\ \/ /' -F Green; " ^
-  "Write-Host '      | |    | |  | | '' /   | | | |__    \  / ' -F Green; " ^
-  "Write-Host '      | |    | |  | |  <    | | |  __|   /  \ ' -F Green; " ^
-  "Write-Host '      | |____| |__| | . \  _| |_| |    / /\ \' -F Green; " ^
-  "Write-Host '      |______|\____/|_|\_\|_____|_|   /_/  \_\' -F Green; " ^
+  "Write-Host '  ================================================' -F Green; " ^
+  "Write-Host '   _       ___  _  _____ _____ ___ __  __' -F Green; " ^
+  "Write-Host '  | |     / _ \| |/ /_ _|  ___|_ _\ \/ /' -F Green; " ^
+  "Write-Host '  | |    | | | | '' / | || |_   | | \  / ' -F Green; " ^
+  "Write-Host '  | |___ | |_| | . \ | ||  _|  | | /  \ ' -F Green; " ^
+  "Write-Host '  |_____| \___/|_|\_\___|_|   |___/_/\_\' -F Green; " ^
   "Write-Host ''; " ^
-  "Write-Host '        >_ AI Problem Solver with Anthropic' -F Green; " ^
+  "Write-Host '    >_ AI Problem Solver with Anthropic' -F Green; " ^
   "Write-Host ''; " ^
-  "Write-Host '        v0.2.0' -F DarkGray; " ^
-  "Write-Host '  ============================================' -F Green; " ^
+  "Write-Host '    v0.2.0' -F DarkGray; " ^
+  "Write-Host '  ================================================' -F Green; " ^
   "Write-Host ''; " ^
   "Write-Host '  [I] Italiano  [E] English' -F White; " ^
   "Write-Host ''"
@@ -59,6 +58,7 @@ set "MSG_NOTFOUND=File not found."
 set "MSG_EJECT_SYNC=Flushing buffers..."
 set "MSG_EJECT_OK=USB safely ejected. You can remove the drive now."
 set "MSG_EJECT_FAIL=Could not eject the USB drive. Close all open files and try again."
+set "MSG_REPL_WELCOME=LokiFix interactive session. Type /exit to go back."
 set "LOKI_PREFIX=You are LokiFix, a portable diagnostic engine built for IT technicians. Never mention Claude, Anthropic, or AI language models. If asked who you are, say you are LokiFix. Always be professional and helpful."
 goto env_setup
 
@@ -91,6 +91,7 @@ set "MSG_NOTFOUND=File non trovato."
 set "MSG_EJECT_SYNC=Scaricamento buffer in corso..."
 set "MSG_EJECT_OK=Chiavetta USB sganciata in sicurezza. Puoi rimuoverla."
 set "MSG_EJECT_FAIL=Impossibile sganciare la chiavetta. Chiudi tutti i file aperti e riprova."
+set "MSG_REPL_WELCOME=Sessione interattiva LokiFix. Scrivi /exit per tornare al menu."
 goto env_setup
 
 :env_setup
@@ -160,7 +161,7 @@ echo.
 echo %MSG_DIAGSTART%
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%" "%LOKI_PREFIX% Diagnostica questo sistema Windows: servizi, disco, RAM, CPU, Event Log, rete, DNS, aggiornamenti. Proponi fix e chiedi conferma."
+call "%CLAUDE_BIN%" -p "%LOKI_PREFIX% Diagnostica questo sistema Windows: servizi, disco, RAM, CPU, Event Log, rete, DNS, aggiornamenti. Proponi fix e chiedi conferma."
 echo.
 echo %MSG_BACK%
 echo.
@@ -168,9 +169,19 @@ goto menu
 
 :interattivo
 echo.
-echo %MSG_EXIT%
+powershell -NoProfile -Command "Write-Host '%MSG_REPL_WELCOME%' -F Green"
 echo.
-call "%CLAUDE_BIN%" --system-prompt "%LOKI_PREFIX%"
+:interattivo_loop
+set "USER_INPUT="
+set /p "USER_INPUT=LokiFix> "
+if /i "%USER_INPUT%"=="/exit" goto interattivo_end
+if /i "%USER_INPUT%"=="exit" goto interattivo_end
+if "%USER_INPUT%"=="" goto interattivo_loop
+echo.
+call "%CLAUDE_BIN%" -p "%LOKI_PREFIX% %USER_INPUT%"
+echo.
+goto interattivo_loop
+:interattivo_end
 echo.
 echo %MSG_BACK%
 echo.
@@ -187,7 +198,7 @@ if not exist "%LOGPATH%" (
 )
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%" "%LOKI_PREFIX% Analizza questo file di log, identifica errori e anomalie. File: %LOGPATH%"
+call "%CLAUDE_BIN%" -p "%LOKI_PREFIX% Analizza questo file di log, identifica errori e anomalie. File: %LOGPATH%"
 echo.
 echo %MSG_BACK%
 echo.
@@ -200,7 +211,7 @@ set /p "PROBLEMA=%MSG_PROBLEM%"
 if "%PROBLEMA%"=="" goto menu
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%" "%LOKI_PREFIX% Diagnostica e ripara questo problema: %PROBLEMA%. Esegui comandi diagnostici, identifica la causa, proponi il fix e chiedi conferma prima di applicarlo."
+call "%CLAUDE_BIN%" -p "%LOKI_PREFIX% Diagnostica e ripara questo problema: %PROBLEMA%. Esegui comandi diagnostici, identifica la causa, proponi il fix e chiedi conferma prima di applicarlo."
 echo.
 echo %MSG_BACK%
 echo.
@@ -221,7 +232,7 @@ set /p "SSH_HOST=%MSG_SSHHOST%"
 if "%SSH_HOST%"=="" goto menu
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%" "%LOKI_PREFIX% Collegati via SSH a %SSH_HOST% e diagnostica il sistema remoto. Proponi fix e chiedi conferma."
+call "%CLAUDE_BIN%" -p "%LOKI_PREFIX% Collegati via SSH a %SSH_HOST% e diagnostica il sistema remoto. Proponi fix e chiedi conferma."
 echo.
 echo %MSG_BACK%
 echo.
@@ -232,7 +243,7 @@ echo.
 echo %MSG_NETSTART%
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%" "%LOKI_PREFIX% Esegui una diagnosi completa della rete su questo sistema Windows: interfacce di rete, configurazione IP, DNS, gateway, tabella routing, porte in ascolto, connessioni attive, firewall rules, test connettivita' verso internet e DNS. Identifica problemi e proponi fix."
+call "%CLAUDE_BIN%" -p "%LOKI_PREFIX% Esegui una diagnosi completa della rete su questo sistema Windows: interfacce di rete, configurazione IP, DNS, gateway, tabella routing, porte in ascolto, connessioni attive, firewall rules, test connettivita' verso internet e DNS. Identifica problemi e proponi fix."
 echo.
 echo %MSG_BACK%
 echo.
@@ -243,7 +254,7 @@ echo.
 echo %MSG_SECSTART%
 echo %MSG_EXIT%
 echo.
-call "%CLAUDE_BIN%" "%LOKI_PREFIX% Esegui un'analisi di sicurezza COMPLETA e AUTONOMA di questo sistema Windows senza chiedere conferma. Esegui tutti i controlli in sequenza automaticamente. Controlla: utenti e gruppi locali, policy password, servizi in esecuzione come SYSTEM, porte aperte, firewall, antivirus, aggiornamenti mancanti, share di rete, task schedulati sospetti, autorun, permessi cartelle condivise, RDP, SMBv1, audit policy. NON chiedere conferma, NON fermarti tra un controllo e l'altro. Alla fine produci un report strutturato con severita (CRITICO/ALTO/MEDIO/BASSO) e remediation per ogni problema trovato."
+call "%CLAUDE_BIN%" -p "%LOKI_PREFIX% Esegui un'analisi di sicurezza COMPLETA e AUTONOMA di questo sistema Windows senza chiedere conferma. Esegui tutti i controlli in sequenza automaticamente. Controlla: utenti e gruppi locali, policy password, servizi in esecuzione come SYSTEM, porte aperte, firewall, antivirus, aggiornamenti mancanti, share di rete, task schedulati sospetti, autorun, permessi cartelle condivise, RDP, SMBv1, audit policy. NON chiedere conferma, NON fermarti tra un controllo e l'altro. Alla fine produci un report strutturato con severita (CRITICO/ALTO/MEDIO/BASSO) e remediation per ogni problema trovato."
 echo.
 echo %MSG_BACK%
 echo.
