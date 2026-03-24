@@ -169,7 +169,7 @@ goto menu
 
 :interattivo
 echo.
-call "%CLAUDE_BIN%" -s "%LOKI_PREFIX%"
+call "%CLAUDE_BIN%" --system-prompt "%LOKI_PREFIX%"
 echo.
 echo %MSG_BACK%
 echo.

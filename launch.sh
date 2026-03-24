@@ -216,7 +216,7 @@ show_menu() {
 
 # === FUNZIONI ===
 do_interattivo() {
-    claude -s "$LOKI_PREFIX"
+    claude --system-prompt "$LOKI_PREFIX"
 }
 
 do_diagnosi() {

@@ -169,7 +169,7 @@ function Invoke-LokiFix {
 }
 
 function Start-Interattivo {
-    & $claudeBin -s "$LokiPrefix"
+    & $claudeBin --system-prompt "$LokiPrefix"
 }
 
 function Start-Diagnosi {
