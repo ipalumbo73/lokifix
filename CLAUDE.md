@@ -85,8 +85,9 @@ internal/
   transport/          # WebSocket client/server
   tunnel/             # Integrazione cloudflared
   executor/           # Esecuzione comandi Windows
-  fileops/            # Operazioni su file
+  fileops/            # Operazioni su file, glob, grep, transfer chunked
   sysinfo/            # Info sistema, processi, servizi, registry
   mcp/                # Protocollo MCP per Claude Code
   agent/              # Handler dei tool remoti
+  ui/                 # Tema Loki: colori ANSI adattivi, banner, componenti UI
 ```

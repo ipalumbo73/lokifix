@@ -15,34 +15,26 @@ import (
 	"github.com/ivanpalumbo/lokifix/internal/audit"
 	"github.com/ivanpalumbo/lokifix/internal/auth"
 	"github.com/ivanpalumbo/lokifix/internal/transport"
+	"github.com/ivanpalumbo/lokifix/internal/ui"
 )
-
-const banner = `
- ╦  ╔═╗╦╔═╦╔═╗╦═╗ ╦
- ║  ║ ║╠╩╗║╠╣ ║╔╩╦╝
- ╩═╝╚═╝╩ ╩╩╚  ╩╩ ╚═
-  Remote Agent v1.1.0
-`
 
 const maxRetries = 5
 
 func main() {
-	fmt.Print(banner)
-	fmt.Println("  Agente remoto per LokiFix")
-	fmt.Println("  Ogni azione dell'operatore viene registrata.")
-	fmt.Println("  Le operazioni pericolose richiedono la tua approvazione.")
-	fmt.Println()
-	fmt.Println("  ─────────────────────────────────────")
+	// Initialize themed UI (detect ANSI support)
+	ui.Init()
+
+	ui.PrintBanner()
 
 	connectionCode := readConnectionCode()
 	if connectionCode == "" {
-		fmt.Println("\n  ✗ Codice di connessione vuoto")
+		fmt.Printf("\n  %s Codice di connessione vuoto\n", ui.Red("✗"))
 		os.Exit(1)
 	}
 
 	serverURL, token, err := auth.DecodeConnectionInfo(connectionCode)
 	if err != nil {
-		fmt.Printf("\n  ✗ Codice non valido: %v\n", err)
+		fmt.Printf("\n  %s Codice non valido: %v\n", ui.Red("✗"), err)
 		os.Exit(1)
 	}
 
@@ -53,7 +45,7 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		fmt.Println("\n\n  Disconnessione in corso...")
+		ui.PrintDisconnectMessage()
 		cancel()
 	}()
 
@@ -64,31 +56,20 @@ func main() {
 	logDir := getLogDir()
 	logger, err := audit.NewLogger("REMOTE", logDir, sessionID)
 	if err != nil {
-		fmt.Printf("  ⚠ Impossibile creare audit log: %v\n", err)
+		fmt.Printf("  %s Impossibile creare audit log: %v\n", ui.Gold("⚠"), err)
 		fmt.Println("  Le azioni NON verranno registrate.")
 	} else {
-		fmt.Printf("  📋 Audit log: %s\n", logger.FilePath())
+		ui.PrintInfo("📋 Audit log:", logger.FilePath())
 
-		// Show actions in real-time on console
+		// Show actions in real-time on console with themed formatting
 		logger.OnEntry = func(entry audit.Entry) {
 			ts := entry.Timestamp.Format("15:04:05")
-			symbol := "✓"
-			if entry.Result == "ERROR" {
-				symbol = "✗"
-			} else if entry.Result == "DENIED" {
-				symbol = "⊘"
-			}
-
-			detail := entry.Detail
-			if len(detail) > 80 {
-				detail = detail[:80] + "..."
-			}
-
-			fmt.Printf("  %s [%s] %s %-15s %s\n", symbol, ts, entry.Result, entry.Action, detail)
+			line := ui.FormatLogEntry(ts, entry.Result, entry.Action, entry.Detail)
+			fmt.Println(line)
 		}
 	}
 
-	// Create handler with logging and confirmation
+	// Create handler with logging and themed confirmation
 	handlerCfg := agent.HandlerConfig{
 		Logger: logger,
 		ConfirmFunc: func(action, detail, reason string) bool {
@@ -104,12 +85,13 @@ func main() {
 		logger.Log(audit.ActionDisconnect, "Sessione terminata", "OK")
 		reportPath, err := logger.WriteReport()
 		if err == nil {
-			fmt.Printf("\n  📄 Report sessione: %s\n", reportPath)
+			ui.PrintInfo("📄 Report sessione:", reportPath)
 		}
-		fmt.Println(logger.SessionSummary())
+		ui.PrintSessionReport(logger.SessionSummary())
 		logger.Close()
 	}
 
+	fmt.Println()
 	fmt.Println("  Premi Invio per chiudere...")
 	bufio.NewReader(os.Stdin).ReadByte()
 }
@@ -123,7 +105,7 @@ func connectAndRun(ctx context.Context, serverURL, token string, handler transpo
 			return
 		}
 
-		fmt.Printf("\n  Connessione a %s...\n", maskURL(serverURL))
+		fmt.Printf("\n  %s Connessione a %s...\n", ui.Cyan("↻"), maskURL(serverURL))
 
 		client := transport.NewClient(serverURL, token, handler)
 		if sessionToken != "" {
@@ -136,14 +118,13 @@ func connectAndRun(ctx context.Context, serverURL, token string, handler transpo
 			}
 			retries++
 			if retries > maxRetries {
-				fmt.Printf("  ✗ Connessione fallita dopo %d tentativi: %v\n", maxRetries, err)
+				ui.PrintFatalRetry(maxRetries, err)
 				return
 			}
-			delay := time.Duration(retries*2) * time.Second
-			fmt.Printf("  ✗ Connessione fallita: %v\n", err)
-			fmt.Printf("  Nuovo tentativo tra %v... (%d/%d)\n", delay, retries, maxRetries)
+			delay := retries * 2
+			ui.PrintRetry(retries, maxRetries, err, delay)
 			select {
-			case <-time.After(delay):
+			case <-time.After(time.Duration(delay) * time.Second):
 				continue
 			case <-ctx.Done():
 				return
@@ -153,20 +134,13 @@ func connectAndRun(ctx context.Context, serverURL, token string, handler transpo
 		retries = 0
 
 		hostname, _ := os.Hostname()
-		fmt.Printf("  ✓ Connesso! Hostname: %s\n", hostname)
+		ui.PrintConnectionHeader(hostname)
 
 		if logger != nil {
 			logger.Log(audit.ActionConnect, fmt.Sprintf("Connesso a %s come %s", maskURL(serverURL), hostname), "OK")
 		}
 
-		fmt.Println()
-		fmt.Println("  ─────────────────────────────────────")
-		fmt.Println("  L'operatore può ora gestire questa macchina.")
-		fmt.Println("  Le azioni appariranno qui sotto in tempo reale.")
-		fmt.Println("  Operazioni pericolose richiedono la tua conferma.")
-		fmt.Println("  Premi Ctrl+C per disconnetterti.")
-		fmt.Println("  ─────────────────────────────────────")
-		fmt.Println()
+		ui.PrintInstructions()
 
 		err := client.Run(ctx)
 		// Save session token for reconnection before closing
@@ -176,13 +150,13 @@ func connectAndRun(ctx context.Context, serverURL, token string, handler transpo
 		client.Close()
 
 		if ctx.Err() != nil {
-			fmt.Println("\n  Disconnesso dall'utente.")
+			ui.PrintDisconnectMessage()
 			return
 		}
 
 		if err != nil {
-			fmt.Printf("\n  ⚠ Connessione persa: %v\n", err)
-			fmt.Println("  Tentativo di riconnessione...")
+			fmt.Printf("\n  %s Connessione persa: %v\n", ui.Gold("⚠"), err)
+			fmt.Printf("  %s Tentativo di riconnessione...\n", ui.Cyan("↻"))
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -192,29 +166,8 @@ func connectAndRun(ctx context.Context, serverURL, token string, handler transpo
 }
 
 func askConfirmation(action, detail, reason string) bool {
-	fmt.Println()
-	fmt.Println("  ╔══════════════════════════════════════════════════╗")
-	fmt.Println("  ║  ⚠  OPERAZIONE PERICOLOSA - CONFERMA RICHIESTA ║")
-	fmt.Println("  ╠══════════════════════════════════════════════════╣")
-	fmt.Printf("  ║  Azione:  %s\n", action)
-
-	// Print detail with word wrap
-	if len(detail) > 45 {
-		fmt.Printf("  ║  Dettaglio: %s\n", detail[:45])
-		for i := 45; i < len(detail); i += 45 {
-			end := i + 45
-			if end > len(detail) {
-				end = len(detail)
-			}
-			fmt.Printf("  ║             %s\n", detail[i:end])
-		}
-	} else {
-		fmt.Printf("  ║  Dettaglio: %s\n", detail)
-	}
-
-	fmt.Printf("  ║  Motivo:  %s\n", reason)
-	fmt.Println("  ╚══════════════════════════════════════════════════╝")
-	fmt.Print("  Approvi? [s/N]: ")
+	ui.PrintConfirmDialog(action, detail, reason)
+	ui.PrintPrompt()
 
 	reader := bufio.NewReader(os.Stdin)
 	input, _ := reader.ReadString('\n')
@@ -223,11 +176,10 @@ func askConfirmation(action, detail, reason string) bool {
 	approved := input == "s" || input == "si" || input == "sì" || input == "y" || input == "yes"
 
 	if approved {
-		fmt.Println("  → Approvato")
+		ui.PrintApproved()
 	} else {
-		fmt.Println("  → Negato")
+		ui.PrintDenied()
 	}
-	fmt.Println()
 
 	return approved
 }
@@ -238,7 +190,11 @@ func readConnectionCode() string {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("\n  Inserisci il codice di connessione:\n  > ")
+	if ui.IsColor() {
+		fmt.Printf("  %s Inserisci il codice di connessione:\n  %s ", ui.Gold("ᛚ"), ui.Green(">"))
+	} else {
+		fmt.Print("\n  Inserisci il codice di connessione:\n  > ")
+	}
 	line, _ := reader.ReadString('\n')
 	return strings.TrimSpace(line)
 }
@@ -257,7 +213,6 @@ func maskURL(url string) string {
 }
 
 func getLogDir() string {
-	// Try to use a lokifix-logs directory next to the executable
 	exePath, err := os.Executable()
 	if err == nil {
 		logDir := filepath.Join(filepath.Dir(exePath), "lokifix-logs")
@@ -265,7 +220,6 @@ func getLogDir() string {
 			return logDir
 		}
 	}
-	// Fallback to temp
 	return filepath.Join(os.TempDir(), "lokifix-logs")
 }
 

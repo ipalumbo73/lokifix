@@ -56,7 +56,7 @@ func (s *MCPServer) NotifyAgentConnected(hostname string) {
 	s.sendNotification("notifications/message", map[string]any{
 		"level":  "info",
 		"logger": "lokifix",
-		"data":   fmt.Sprintf("Remote agent connected: %s", hostname),
+		"data":   fmt.Sprintf("◈ LokiFix — Remote agent connected: %s", hostname),
 	})
 }
 
@@ -65,7 +65,7 @@ func (s *MCPServer) NotifyAgentDisconnected() {
 	s.sendNotification("notifications/message", map[string]any{
 		"level":  "warning",
 		"logger": "lokifix",
-		"data":   "Remote agent disconnected",
+		"data":   "◈ LokiFix — Remote agent disconnected",
 	})
 }
 
