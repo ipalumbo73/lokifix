@@ -17,9 +17,8 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host ""
-Write-Host "  ╦  ╔═╗╦╔═╦╔═╗╦═╗ ╦" -ForegroundColor Cyan
-Write-Host "  ║  ║ ║╠╩╗║╠╣ ║╔╩╦╝" -ForegroundColor Cyan
-Write-Host "  ╩═╝╚═╝╩ ╩╩╚  ╩╩ ╚═" -ForegroundColor Cyan
+Write-Host "  LOKIFIX" -ForegroundColor Cyan
+Write-Host "  Remote Agent Setup" -ForegroundColor Cyan
 Write-Host "  Setup v1.0.0" -ForegroundColor DarkGray
 Write-Host ""
 
@@ -30,9 +29,9 @@ $buildDir = Join-Path $projectDir "build"
 Write-Host "  [1/4] Verifica Go..." -ForegroundColor Yellow
 try {
     $goVersion = & go version 2>&1
-    Write-Host "  ✓ $goVersion" -ForegroundColor Green
+    Write-Host "  [OK] $goVersion" -ForegroundColor Green
 } catch {
-    Write-Host "  ✗ Go non trovato. Installa Go: winget install GoLang.Go" -ForegroundColor Red
+    Write-Host "  [ERRORE] Go non trovato. Installa Go: winget install GoLang.Go" -ForegroundColor Red
     exit 1
 }
 
@@ -47,7 +46,7 @@ if (!(Test-Path $buildDir)) {
 Write-Host "    Compilando lokifix-mcp.exe..."
 & go build -ldflags="-s -w" -o (Join-Path $buildDir "lokifix-mcp.exe") ./cmd/lokifix-mcp/
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  ✗ Compilazione MCP server fallita" -ForegroundColor Red
+    Write-Host "  [ERRORE] Compilazione MCP server fallita" -ForegroundColor Red
     Pop-Location
     exit 1
 }
@@ -55,7 +54,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "    Compilando lokifix-agent.exe..."
 & go build -ldflags="-s -w" -o (Join-Path $buildDir "lokifix-agent.exe") ./cmd/lokifix-agent/
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  ✗ Compilazione agent fallita" -ForegroundColor Red
+    Write-Host "  [ERRORE] Compilazione agent fallita" -ForegroundColor Red
     Pop-Location
     exit 1
 }
@@ -67,8 +66,8 @@ $agentExe = Join-Path $buildDir "lokifix-agent.exe"
 $mcpSize = [math]::Round((Get-Item $mcpExe).Length / 1MB, 1)
 $agentSize = [math]::Round((Get-Item $agentExe).Length / 1MB, 1)
 
-Write-Host "  ✓ lokifix-mcp.exe   ($mcpSize MB)" -ForegroundColor Green
-Write-Host "  ✓ lokifix-agent.exe ($agentSize MB)" -ForegroundColor Green
+Write-Host "  [OK] lokifix-mcp.exe   ($mcpSize MB)" -ForegroundColor Green
+Write-Host "  [OK] lokifix-agent.exe ($agentSize MB)" -ForegroundColor Green
 
 # 3. Configure Claude Code MCP
 Write-Host "  [3/4] Configurazione Claude Code..." -ForegroundColor Yellow
@@ -85,39 +84,45 @@ if (!(Test-Path $claudeConfigDir)) {
 }
 
 # Read existing config or create new
-$config = @{}
 if (Test-Path $claudeConfigFile) {
-    $config = Get-Content $claudeConfigFile -Raw | ConvertFrom-Json -AsHashtable
+    $configJson = Get-Content $claudeConfigFile -Raw | ConvertFrom-Json
+} else {
+    $configJson = New-Object PSObject
 }
 
-if (-not $config.ContainsKey("mcpServers")) {
-    $config["mcpServers"] = @{}
+if (-not (Get-Member -InputObject $configJson -Name "mcpServers" -MemberType NoteProperty)) {
+    $configJson | Add-Member -NotePropertyName "mcpServers" -NotePropertyValue (New-Object PSObject)
 }
 
-$config["mcpServers"]["lokifix-remote"] = @{
+$serverObj = New-Object PSObject -Property @{
     "command" = $mcpExe
     "args" = @()
 }
+if (Get-Member -InputObject $configJson.mcpServers -Name "lokifix-remote" -MemberType NoteProperty) {
+    $configJson.mcpServers."lokifix-remote" = $serverObj
+} else {
+    $configJson.mcpServers | Add-Member -NotePropertyName "lokifix-remote" -NotePropertyValue $serverObj
+}
 
-$config | ConvertTo-Json -Depth 10 | Set-Content $claudeConfigFile -Encoding UTF8
-Write-Host "  ✓ MCP server configurato in $claudeConfigFile" -ForegroundColor Green
+$configJson | ConvertTo-Json -Depth 10 | Set-Content $claudeConfigFile -Encoding UTF8
+Write-Host "  [OK] MCP server configurato in $claudeConfigFile" -ForegroundColor Green
 
 # Also configure project-level .claude/settings.local.json
 $projectClaudeDir = Join-Path $projectDir ".claude"
 $projectSettings = Join-Path $projectClaudeDir "settings.local.json"
 
 if (Test-Path $projectSettings) {
-    $projConfig = Get-Content $projectSettings -Raw | ConvertFrom-Json -AsHashtable
+    $projConfig = Get-Content $projectSettings -Raw | ConvertFrom-Json
 } else {
-    $projConfig = @{}
+    $projConfig = New-Object PSObject
 }
 
 # Ensure permissions include the MCP tools
-if (-not $projConfig.ContainsKey("permissions")) {
-    $projConfig["permissions"] = @{}
+if (-not (Get-Member -InputObject $projConfig -Name "permissions" -MemberType NoteProperty)) {
+    $projConfig | Add-Member -NotePropertyName "permissions" -NotePropertyValue (New-Object PSObject)
 }
-if (-not $projConfig["permissions"].ContainsKey("allow")) {
-    $projConfig["permissions"]["allow"] = @()
+if (-not (Get-Member -InputObject $projConfig.permissions -Name "allow" -MemberType NoteProperty)) {
+    $projConfig.permissions | Add-Member -NotePropertyName "allow" -NotePropertyValue @()
 }
 
 # Add MCP tool permissions
@@ -140,41 +145,43 @@ $mcpTools = @(
     "mcp__lokifix-remote__remote_event_log"
 )
 
+$currentAllow = @($projConfig.permissions.allow)
 foreach ($tool in $mcpTools) {
-    if ($projConfig["permissions"]["allow"] -notcontains $tool) {
-        $projConfig["permissions"]["allow"] += $tool
+    if ($currentAllow -notcontains $tool) {
+        $currentAllow += $tool
     }
 }
+$projConfig.permissions.allow = $currentAllow
 
 $projConfig | ConvertTo-Json -Depth 10 | Set-Content $projectSettings -Encoding UTF8
-Write-Host "  ✓ Permessi MCP configurati" -ForegroundColor Green
+Write-Host "  [OK] Permessi MCP configurati" -ForegroundColor Green
 
 # 4. Download cloudflared
 Write-Host "  [4/4] Verifica cloudflared..." -ForegroundColor Yellow
 $cloudflaredPath = Join-Path $buildDir "cloudflared.exe"
 
 if (Test-Path $cloudflaredPath) {
-    Write-Host "  ✓ cloudflared presente" -ForegroundColor Green
+    Write-Host "  [OK] cloudflared presente" -ForegroundColor Green
 } else {
     $cfInPath = Get-Command cloudflared -ErrorAction SilentlyContinue
     if ($cfInPath) {
-        Write-Host "  ✓ cloudflared trovato in PATH: $($cfInPath.Source)" -ForegroundColor Green
+        Write-Host "  [OK] cloudflared trovato in PATH: $($cfInPath.Source)" -ForegroundColor Green
     } else {
         Write-Host "    Scaricando cloudflared..."
         $arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
         $cfUrl = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-$arch.exe"
         try {
             Invoke-WebRequest -Uri $cfUrl -OutFile $cloudflaredPath -UseBasicParsing
-            Write-Host "  ✓ cloudflared scaricato" -ForegroundColor Green
+            Write-Host "  [OK] cloudflared scaricato" -ForegroundColor Green
         } catch {
-            Write-Host "  ⚠ Download cloudflared fallito. Il tunnel non sara' disponibile." -ForegroundColor Yellow
+            Write-Host "  [AVVISO] Download cloudflared fallito. Il tunnel non sara' disponibile." -ForegroundColor Yellow
             Write-Host "    Scarica manualmente da: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/" -ForegroundColor DarkGray
         }
     }
 }
 
 Write-Host ""
-Write-Host "  ════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "  ========================================" -ForegroundColor Cyan
 Write-Host "  Setup completato!" -ForegroundColor Green
 Write-Host ""
 Write-Host "  COME USARE:" -ForegroundColor Yellow
@@ -187,5 +194,5 @@ Write-Host "  4. Esegui l'agent sul PC remoto e incolla il codice"
 Write-Host ""
 Write-Host "  MODALITA' STANDALONE (per test):" -ForegroundColor Yellow
 Write-Host "  $mcpExe --standalone"
-Write-Host "  ════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "  ========================================" -ForegroundColor Cyan
 Write-Host ""
