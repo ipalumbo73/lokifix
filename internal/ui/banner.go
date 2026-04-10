@@ -22,14 +22,24 @@ func printColorBanner() {
 	ver := fmt.Sprintf("       Remote Agent  v%s", version)
 	powered := "    Powered by Claude - Anthropic"
 
+	// Helper: prints a banner row with green borders and colored content
+	row := func(color, text string) {
+		fmt.Printf("  %s|%s%s%s%s|%s\n",
+			t.Green,                  // left | in green
+			color,                    // content color
+			centerPad(text, w),       // padded content
+			t.Reset+t.Green,          // reset content, set green for right |
+			t.Reset)                  // final reset after right |
+	}
+
 	fmt.Println()
 	fmt.Printf("  %s+%s+%s\n", t.Green, pad('-', w), t.Reset)
-	fmt.Printf("  %s|%s%s%s|%s\n", t.Green, t.Reset, pad(' ', w), t.Green, t.Reset)
-	fmt.Printf("  %s|%s%s%s%s%s|%s\n", t.Green, t.Reset, t.Bold+t.Gold, centerPad(title, w), t.Reset+t.Green, t.Reset, "")
-	fmt.Printf("  %s|%s%s%s%s%s|%s\n", t.Green, t.Reset, t.Gray, centerPad(sep, w), t.Reset+t.Green, t.Reset, "")
-	fmt.Printf("  %s|%s%s%s%s%s|%s\n", t.Green, t.Reset, t.White, centerPad(ver, w), t.Reset+t.Green, t.Reset, "")
-	fmt.Printf("  %s|%s%s%s%s%s|%s\n", t.Green, t.Reset, t.Cyan, centerPad(powered, w), t.Reset+t.Green, t.Reset, "")
-	fmt.Printf("  %s|%s%s%s|%s\n", t.Green, t.Reset, pad(' ', w), t.Green, t.Reset)
+	row("", "")
+	row(t.Bold+t.Gold, title)
+	row(t.Gray, sep)
+	row(t.White, ver)
+	row(t.Cyan, powered)
+	row("", "")
 	fmt.Printf("  %s+%s+%s\n", t.Green, pad('-', w), t.Reset)
 	fmt.Println()
 }
