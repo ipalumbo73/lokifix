@@ -17,10 +17,10 @@ func printColorBanner() {
 	t := activeTheme
 	w := 42 // inner width
 
-	title := "   <  L . O . K . I . F . I . X  >   "
-	sep := "   ----------------------------------   "
-	ver := fmt.Sprintf("       Remote Agent  v%s", version)
-	powered := "    Powered by Claude - Anthropic"
+	title := "<  L . O . K . I . F . I . X  >"
+	sep := "----------------------------------"
+	ver := fmt.Sprintf("Remote Agent  v%s", version)
+	powered := "Powered by Claude - Anthropic"
 
 	// Helper: prints a banner row with green borders and colored content
 	row := func(color, text string) {
@@ -48,10 +48,10 @@ func printColorBanner() {
 func printPlainBanner() {
 	w := 42
 
-	title := "   <  L . O . K . I . F . I . X  >   "
-	sep := "   ----------------------------------   "
-	ver := fmt.Sprintf("       Remote Agent  v%s", version)
-	powered := "    Powered by Claude - Anthropic"
+	title := "<  L . O . K . I . F . I . X  >"
+	sep := "----------------------------------"
+	ver := fmt.Sprintf("Remote Agent  v%s", version)
+	powered := "Powered by Claude - Anthropic"
 
 	fmt.Println()
 	fmt.Printf("  +%s+\n", pad('-', w))
