@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	tokenLength    = 32
-	codeLength     = 6
-	codeExpiration = 5 * time.Minute
-	codeChars      = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no 0/O/1/I to avoid confusion
+	tokenLength            = 32
+	codeLength             = 6
+	codeExpiration         = 15 * time.Minute
+	sessionTokenExpiration = 24 * time.Hour
+	codeChars              = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no 0/O/1/I to avoid confusion
 )
 
 // ConnectionCode holds the generated code and its associated token.
@@ -25,16 +26,24 @@ type ConnectionCode struct {
 	Used      bool
 }
 
+// SessionToken holds a persistent token for reconnection after initial auth.
+type SessionToken struct {
+	Token     string
+	CreatedAt time.Time
+}
+
 // Manager handles connection code generation and validation.
 type Manager struct {
-	mu    sync.Mutex
-	codes map[string]*ConnectionCode
+	mu            sync.Mutex
+	codes         map[string]*ConnectionCode
+	sessionTokens map[string]*SessionToken
 }
 
 // NewManager creates a new auth manager.
 func NewManager() *Manager {
 	return &Manager{
-		codes: make(map[string]*ConnectionCode),
+		codes:         make(map[string]*ConnectionCode),
+		sessionTokens: make(map[string]*SessionToken),
 	}
 }
 
@@ -113,7 +122,51 @@ func DecodeConnectionInfo(connectionStr string) (serverURL, token string, err er
 	return parts[0], parts[1], nil
 }
 
-// Cleanup removes expired codes.
+// GenerateSessionToken creates a persistent session token for reconnection.
+func (m *Manager) GenerateSessionToken() (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	token, err := generateToken()
+	if err != nil {
+		return "", fmt.Errorf("generate session token: %w", err)
+	}
+
+	m.sessionTokens[token] = &SessionToken{
+		Token:     token,
+		CreatedAt: time.Now(),
+	}
+	return token, nil
+}
+
+// ValidateSessionToken checks if a session token is valid for reconnection.
+func (m *Manager) ValidateSessionToken(token string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Clean expired session tokens
+	for t, st := range m.sessionTokens {
+		if time.Since(st.CreatedAt) > sessionTokenExpiration {
+			delete(m.sessionTokens, t)
+		}
+	}
+
+	for t := range m.sessionTokens {
+		if subtle.ConstantTimeCompare([]byte(t), []byte(token)) == 1 {
+			return true
+		}
+	}
+	return false
+}
+
+// RevokeSessionToken invalidates a session token.
+func (m *Manager) RevokeSessionToken(token string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.sessionTokens, token)
+}
+
+// Cleanup removes expired codes and session tokens.
 func (m *Manager) Cleanup() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -121,6 +174,11 @@ func (m *Manager) Cleanup() {
 	for code, cc := range m.codes {
 		if time.Since(cc.CreatedAt) > codeExpiration {
 			delete(m.codes, code)
+		}
+	}
+	for t, st := range m.sessionTokens {
+		if time.Since(st.CreatedAt) > sessionTokenExpiration {
+			delete(m.sessionTokens, t)
 		}
 	}
 }

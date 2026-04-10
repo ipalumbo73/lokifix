@@ -178,7 +178,16 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !s.authMgr.ValidateToken(handshake.Token) {
+	// Try session token first (reconnection), then one-time code token
+	authenticated := false
+	if handshake.SessionToken != "" {
+		authenticated = s.authMgr.ValidateSessionToken(handshake.SessionToken)
+	}
+	if !authenticated {
+		authenticated = s.authMgr.ValidateToken(handshake.Token)
+	}
+
+	if !authenticated {
 		result := protocol.AuthResult{Accepted: false, Message: "invalid or expired token"}
 		respEnv, _ := protocol.NewEnvelope(protocol.TypeResponse, env.ID, result)
 		respData, _ := json.Marshal(respEnv)
@@ -187,8 +196,11 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate session token for reconnection
+	sessionToken, _ := s.authMgr.GenerateSessionToken()
+
 	// Auth success
-	result := protocol.AuthResult{Accepted: true, Message: "connected"}
+	result := protocol.AuthResult{Accepted: true, Message: "connected", SessionToken: sessionToken}
 	respEnv, _ := protocol.NewEnvelope(protocol.TypeResponse, env.ID, result)
 	respData, _ := json.Marshal(respEnv)
 	conn.Write(ctx, websocket.MessageText, respData)

@@ -105,7 +105,7 @@ func main() {
 	}
 	fmt.Fprintln(os.Stderr, "║                                                  ║")
 	fmt.Fprintf(os.Stderr, "║  Sessione: %-37s ║\n", cc.Code)
-	fmt.Fprintf(os.Stderr, "║  Scade: %-40s ║\n", time.Now().Add(5*time.Minute).Format("15:04:05"))
+	fmt.Fprintf(os.Stderr, "║  Scade: %-40s ║\n", time.Now().Add(15*time.Minute).Format("15:04:05"))
 	fmt.Fprintf(os.Stderr, "║  File: %-41s ║\n", truncate(codeFilePath, 41))
 	fmt.Fprintln(os.Stderr, "╠══════════════════════════════════════════════════╣")
 	fmt.Fprintln(os.Stderr, "║  ⏳ In attesa dell'agente remoto...              ║")

@@ -86,16 +86,18 @@ type ConfirmResponse struct {
 
 // AuthHandshake is the first message the remote agent sends.
 type AuthHandshake struct {
-	Token    string `json:"token"`
-	Hostname string `json:"hostname"`
-	OS       string `json:"os"`
-	Arch     string `json:"arch"`
+	Token        string `json:"token"`
+	SessionToken string `json:"session_token,omitempty"` // For reconnection
+	Hostname     string `json:"hostname"`
+	OS           string `json:"os"`
+	Arch         string `json:"arch"`
 }
 
 // AuthResult is the server's response to the handshake.
 type AuthResult struct {
-	Accepted bool   `json:"accepted"`
-	Message  string `json:"message,omitempty"`
+	Accepted     bool   `json:"accepted"`
+	Message      string `json:"message,omitempty"`
+	SessionToken string `json:"session_token,omitempty"` // Issued on first auth for reconnection
 }
 
 // --- Tool parameter types ---

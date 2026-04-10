@@ -19,9 +19,10 @@ type RequestHandler func(ctx context.Context, req protocol.Request) protocol.Res
 
 // Client is the WebSocket client that runs on the remote machine.
 type Client struct {
-	serverURL string
-	token     string
-	handler   RequestHandler
+	serverURL    string
+	token        string
+	sessionToken string
+	handler      RequestHandler
 
 	mu   sync.Mutex
 	conn *websocket.Conn
@@ -50,10 +51,11 @@ func (c *Client) Connect(ctx context.Context) error {
 	// Send auth handshake
 	hostname, _ := os.Hostname()
 	handshake := protocol.AuthHandshake{
-		Token:    c.token,
-		Hostname: hostname,
-		OS:       runtime.GOOS,
-		Arch:     runtime.GOARCH,
+		Token:        c.token,
+		SessionToken: c.sessionToken,
+		Hostname:     hostname,
+		OS:           runtime.GOOS,
+		Arch:         runtime.GOARCH,
 	}
 
 	env, err := protocol.NewEnvelope(protocol.TypeResponse, "auth", handshake)
@@ -98,6 +100,9 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	c.mu.Lock()
 	c.conn = conn
+	if result.SessionToken != "" {
+		c.sessionToken = result.SessionToken
+	}
 	c.mu.Unlock()
 
 	return nil
@@ -142,6 +147,20 @@ func (c *Client) Run(ctx context.Context) error {
 			// Pong received, connection is alive
 		}
 	}
+}
+
+// SessionToken returns the session token received from the server for reconnection.
+func (c *Client) SessionToken() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.sessionToken
+}
+
+// SetSessionToken sets a session token for reconnection.
+func (c *Client) SetSessionToken(token string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.sessionToken = token
 }
 
 // Close cleanly closes the connection.

@@ -116,6 +116,7 @@ func main() {
 
 func connectAndRun(ctx context.Context, serverURL, token string, handler transport.RequestHandler, logger *audit.Logger, sessionID string) {
 	retries := 0
+	sessionToken := ""
 
 	for {
 		if ctx.Err() != nil {
@@ -125,6 +126,9 @@ func connectAndRun(ctx context.Context, serverURL, token string, handler transpo
 		fmt.Printf("\n  Connessione a %s...\n", maskURL(serverURL))
 
 		client := transport.NewClient(serverURL, token, handler)
+		if sessionToken != "" {
+			client.SetSessionToken(sessionToken)
+		}
 
 		if err := client.Connect(ctx); err != nil {
 			if ctx.Err() != nil {
@@ -165,6 +169,10 @@ func connectAndRun(ctx context.Context, serverURL, token string, handler transpo
 		fmt.Println()
 
 		err := client.Run(ctx)
+		// Save session token for reconnection before closing
+		if st := client.SessionToken(); st != "" {
+			sessionToken = st
+		}
 		client.Close()
 
 		if ctx.Err() != nil {

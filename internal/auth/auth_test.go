@@ -91,6 +91,40 @@ func TestCodeCharset(t *testing.T) {
 	}
 }
 
+func TestSessionToken(t *testing.T) {
+	m := NewManager()
+
+	// Generate session token
+	st, err := m.GenerateSessionToken()
+	if err != nil {
+		t.Fatalf("GenerateSessionToken: %v", err)
+	}
+	if st == "" {
+		t.Fatal("session token is empty")
+	}
+
+	// Session token should be valid
+	if !m.ValidateSessionToken(st) {
+		t.Error("valid session token rejected")
+	}
+
+	// Session token should be reusable (not one-time)
+	if !m.ValidateSessionToken(st) {
+		t.Error("session token should be reusable for reconnection")
+	}
+
+	// Invalid session token
+	if m.ValidateSessionToken("bogus-session-token") {
+		t.Error("bogus session token accepted")
+	}
+
+	// Revoke session token
+	m.RevokeSessionToken(st)
+	if m.ValidateSessionToken(st) {
+		t.Error("revoked session token should be rejected")
+	}
+}
+
 func splitEvery(s string, n int) []string {
 	var parts []string
 	for i := 0; i < len(s); i += n {
