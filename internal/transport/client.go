@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	lokicrypto "github.com/ivanpalumbo/lokifix/internal/crypto"
 	"github.com/ivanpalumbo/lokifix/internal/protocol"
 )
 
@@ -24,8 +25,9 @@ type Client struct {
 	sessionToken string
 	handler      RequestHandler
 
-	mu   sync.Mutex
-	conn *websocket.Conn
+	mu     sync.Mutex
+	conn   *websocket.Conn
+	cipher *lokicrypto.Cipher
 }
 
 // NewClient creates a new WebSocket client.
@@ -98,8 +100,20 @@ func (c *Client) Connect(ctx context.Context) error {
 		return fmt.Errorf("authentication rejected: %s", result.Message)
 	}
 
+	// Derive encryption key from the same token used for auth
+	authSecret := c.token
+	if c.sessionToken != "" {
+		authSecret = c.sessionToken
+	}
+	e2eCipher, err := lokicrypto.NewCipherFromSecret(authSecret)
+	if err != nil {
+		conn.Close(websocket.StatusInternalError, "")
+		return fmt.Errorf("e2e cipher setup: %w", err)
+	}
+
 	c.mu.Lock()
 	c.conn = conn
+	c.cipher = e2eCipher
 	if result.SessionToken != "" {
 		c.sessionToken = result.SessionToken
 	}
@@ -125,9 +139,18 @@ func (c *Client) Run(ctx context.Context) error {
 	sem := make(chan struct{}, 20)
 
 	for {
-		_, data, err := conn.Read(ctx)
+		msgType, data, err := conn.Read(ctx)
 		if err != nil {
 			return fmt.Errorf("read: %w", err)
+		}
+
+		// Decrypt binary messages
+		if msgType == websocket.MessageBinary && c.cipher != nil {
+			data, err = c.cipher.Decrypt(data)
+			if err != nil {
+				log.Printf("e2e decrypt error: %v", err)
+				continue
+			}
 		}
 
 		var env protocol.Envelope
@@ -206,7 +229,15 @@ func (c *Client) writeMessage(ctx context.Context, id string, resp protocol.Resp
 		return
 	}
 
-	if err := conn.Write(ctx, websocket.MessageText, data); err != nil {
+	msgType := websocket.MessageText
+	if c.cipher != nil {
+		if encrypted, err := c.cipher.Encrypt(data); err == nil {
+			data = encrypted
+			msgType = websocket.MessageBinary
+		}
+	}
+
+	if err := conn.Write(ctx, msgType, data); err != nil {
 		log.Printf("write response: %v", err)
 	}
 }
@@ -223,6 +254,14 @@ func (c *Client) pingLoop(ctx context.Context) {
 			ping, _ := protocol.NewEnvelope(protocol.TypePing, "ping", nil)
 			data, _ := json.Marshal(ping)
 
+			msgType := websocket.MessageText
+			if c.cipher != nil {
+				if encrypted, err := c.cipher.Encrypt(data); err == nil {
+					data = encrypted
+					msgType = websocket.MessageBinary
+				}
+			}
+
 			c.mu.Lock()
 			conn := c.conn
 			c.mu.Unlock()
@@ -230,7 +269,7 @@ func (c *Client) pingLoop(ctx context.Context) {
 			if conn == nil {
 				return
 			}
-			if err := conn.Write(ctx, websocket.MessageText, data); err != nil {
+			if err := conn.Write(ctx, msgType, data); err != nil {
 				return
 			}
 		}

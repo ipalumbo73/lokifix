@@ -90,4 +90,5 @@ internal/
   mcp/                # Protocollo MCP per Claude Code
   agent/              # Handler dei tool remoti
   ui/                 # Tema Loki: colori ANSI adattivi, banner, componenti UI
+  crypto/             # Crittografia E2E: AES-256-GCM con derivazione chiave HKDF
 ```

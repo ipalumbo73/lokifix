@@ -12,6 +12,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/ivanpalumbo/lokifix/internal/auth"
+	lokicrypto "github.com/ivanpalumbo/lokifix/internal/crypto"
 	"github.com/ivanpalumbo/lokifix/internal/protocol"
 )
 
@@ -33,6 +34,7 @@ type Server struct {
 	conn      *websocket.Conn
 	agentCtx  context.Context
 	agentInfo *ConnectionInfo
+	cipher    *lokicrypto.Cipher
 
 	// Pending requests waiting for responses
 	pending   map[string]chan protocol.Envelope
@@ -128,6 +130,17 @@ func (s *Server) SendRequest(ctx context.Context, id string, req protocol.Reques
 		s.pendingMu.Unlock()
 	}()
 
+	// Encrypt if cipher is available
+	msgType := websocket.MessageText
+	if s.cipher != nil {
+		encrypted, err := s.cipher.Encrypt(data)
+		if err != nil {
+			return protocol.Response{}, fmt.Errorf("encrypt: %w", err)
+		}
+		data = encrypted
+		msgType = websocket.MessageBinary
+	}
+
 	// Hold lock during connection check and write to prevent race
 	s.mu.Lock()
 	conn := s.conn
@@ -135,7 +148,7 @@ func (s *Server) SendRequest(ctx context.Context, id string, req protocol.Reques
 		s.mu.Unlock()
 		return protocol.Response{}, fmt.Errorf("no agent connected")
 	}
-	writeErr := conn.Write(ctx, websocket.MessageText, data)
+	writeErr := conn.Write(ctx, msgType, data)
 	s.mu.Unlock()
 
 	if writeErr != nil {
@@ -219,15 +232,28 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Generate session token for reconnection
 	sessionToken, _ := s.authMgr.GenerateSessionToken()
 
-	// Auth success
+	// Auth success — send result before enabling encryption
 	result := protocol.AuthResult{Accepted: true, Message: "connected", SessionToken: sessionToken}
 	respEnv, _ := protocol.NewEnvelope(protocol.TypeResponse, env.ID, result)
 	respData, _ := json.Marshal(respEnv)
 	conn.Write(ctx, websocket.MessageText, respData)
 
+	// Derive encryption key from the token that was used for auth
+	authSecret := handshake.Token
+	if handshake.SessionToken != "" {
+		authSecret = handshake.SessionToken
+	}
+	e2eCipher, err := lokicrypto.NewCipherFromSecret(authSecret)
+	if err != nil {
+		log.Printf("e2e cipher setup failed: %v", err)
+		conn.Close(websocket.StatusInternalError, "crypto setup failed")
+		return
+	}
+
 	s.mu.Lock()
 	s.conn = conn
 	s.agentCtx = ctx
+	s.cipher = e2eCipher
 	s.agentInfo = &ConnectionInfo{
 		Hostname:    handshake.Hostname,
 		OS:          handshake.OS,
@@ -245,6 +271,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 	s.conn = nil
+	s.cipher = nil
 	s.agentInfo = nil
 	s.mu.Unlock()
 
@@ -255,9 +282,18 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) readLoop(ctx context.Context, conn *websocket.Conn) {
 	for {
-		_, data, err := conn.Read(ctx)
+		msgType, data, err := conn.Read(ctx)
 		if err != nil {
 			return
+		}
+
+		// Decrypt binary messages
+		if msgType == websocket.MessageBinary && s.cipher != nil {
+			data, err = s.cipher.Decrypt(data)
+			if err != nil {
+				log.Printf("e2e decrypt error: %v", err)
+				continue
+			}
 		}
 
 		var env protocol.Envelope
@@ -276,7 +312,14 @@ func (s *Server) readLoop(ctx context.Context, conn *websocket.Conn) {
 		case protocol.TypePing:
 			pong, _ := protocol.NewEnvelope(protocol.TypePong, env.ID, nil)
 			pongData, _ := json.Marshal(pong)
-			conn.Write(ctx, websocket.MessageText, pongData)
+			pongMsgType := websocket.MessageText
+			if s.cipher != nil {
+				if enc, err := s.cipher.Encrypt(pongData); err == nil {
+					pongData = enc
+					pongMsgType = websocket.MessageBinary
+				}
+			}
+			conn.Write(ctx, pongMsgType, pongData)
 		}
 	}
 }
