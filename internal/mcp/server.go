@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -38,6 +39,8 @@ type MCPServer struct {
 	wsServer  *transport.Server
 	requestID atomic.Int64
 	Logger    *audit.Logger
+	writer    io.Writer
+	writerMu  sync.Mutex
 }
 
 // NewMCPServer creates a new MCP server that proxies to the remote agent.
@@ -45,10 +48,54 @@ func NewMCPServer(wsServer *transport.Server, logger *audit.Logger) *MCPServer {
 	return &MCPServer{wsServer: wsServer, Logger: logger}
 }
 
+// NotifyAgentConnected sends an MCP log notification when a remote agent connects.
+func (s *MCPServer) NotifyAgentConnected(hostname string) {
+	s.sendNotification("notifications/message", map[string]any{
+		"level":  "info",
+		"logger": "lokifix",
+		"data":   fmt.Sprintf("Remote agent connected: %s", hostname),
+	})
+}
+
+// NotifyAgentDisconnected sends an MCP log notification when a remote agent disconnects.
+func (s *MCPServer) NotifyAgentDisconnected() {
+	s.sendNotification("notifications/message", map[string]any{
+		"level":  "warning",
+		"logger": "lokifix",
+		"data":   "Remote agent disconnected",
+	})
+}
+
+func (s *MCPServer) sendNotification(method string, params any) {
+	s.writerMu.Lock()
+	defer s.writerMu.Unlock()
+
+	if s.writer == nil {
+		return
+	}
+
+	paramsData, _ := json.Marshal(params)
+	msg := jsonrpcMessage{
+		JSONRPC: "2.0",
+		Method:  method,
+		Params:  paramsData,
+	}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return
+	}
+	data = append(data, '\n')
+	s.writer.Write(data)
+}
+
 // Run starts the MCP server, reading from stdin and writing to stdout.
 func (s *MCPServer) Run(ctx context.Context) error {
 	reader := bufio.NewReader(os.Stdin)
 	writer := os.Stdout
+
+	s.writerMu.Lock()
+	s.writer = writer
+	s.writerMu.Unlock()
 
 	for {
 		line, err := reader.ReadBytes('\n')
@@ -97,11 +144,12 @@ func (s *MCPServer) handleInitialize(msg jsonrpcMessage) jsonrpcMessage {
 	result := map[string]any{
 		"protocolVersion": "2024-11-05",
 		"capabilities": map[string]any{
-			"tools": map[string]any{},
+			"tools":   map[string]any{},
+			"logging": map[string]any{},
 		},
 		"serverInfo": map[string]any{
 			"name":    "lokifix-remote",
-			"version": "1.0.0",
+			"version": "1.1.0",
 		},
 	}
 
@@ -285,6 +333,14 @@ func (s *MCPServer) handleToolsList(msg jsonrpcMessage) jsonrpcMessage {
 				},
 			},
 		},
+		{
+			"name":        "remote_connection_status",
+			"description": "Check the connection status of the remote agent. Returns hostname, OS, architecture, connection time, and duration.",
+			"inputSchema": map[string]any{
+				"type": "object",
+				"properties": map[string]any{},
+			},
+		},
 	}
 
 	result := map[string]any{"tools": tools}
@@ -303,6 +359,11 @@ func (s *MCPServer) handleToolsCall(ctx context.Context, msg jsonrpcMessage) jso
 	}
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		return s.errorResponse(msg.ID, -32602, "invalid params")
+	}
+
+	// Handle local tools (no remote agent needed)
+	if params.Name == "remote_connection_status" {
+		return s.handleConnectionStatus(msg.ID)
 	}
 
 	if !s.wsServer.IsConnected() {
@@ -377,6 +438,43 @@ func (s *MCPServer) handleToolsCall(ctx context.Context, msg jsonrpcMessage) jso
 		return s.toolResult(msg.ID, true, fmt.Sprintf("%v", resp.Data))
 	}
 	return s.toolResult(msg.ID, true, string(dataStr))
+}
+
+func (s *MCPServer) handleConnectionStatus(id any) jsonrpcMessage {
+	info := s.wsServer.GetConnectionInfo()
+	if info == nil {
+		result := map[string]any{
+			"connected": false,
+			"message":   "No remote agent connected",
+		}
+		data, _ := json.MarshalIndent(result, "", "  ")
+		return s.toolResult(id, true, string(data))
+	}
+
+	duration := time.Since(info.ConnectedAt)
+	result := map[string]any{
+		"connected":    true,
+		"hostname":     info.Hostname,
+		"os":           info.OS,
+		"arch":         info.Arch,
+		"connected_at": info.ConnectedAt.Format("2006-01-02 15:04:05"),
+		"duration":     formatDuration(duration),
+	}
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return s.toolResult(id, true, string(data))
+}
+
+func formatDuration(d time.Duration) string {
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	s := int(d.Seconds()) % 60
+	if h > 0 {
+		return fmt.Sprintf("%dh %dm %ds", h, m, s)
+	}
+	if m > 0 {
+		return fmt.Sprintf("%dm %ds", m, s)
+	}
+	return fmt.Sprintf("%ds", s)
 }
 
 func (s *MCPServer) toolResult(id any, success bool, text string) jsonrpcMessage {

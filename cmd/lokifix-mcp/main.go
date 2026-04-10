@@ -139,6 +139,26 @@ func main() {
 		}
 	}
 
+	// Create MCP server early so callbacks can send notifications
+	mcpServer := mcp.NewMCPServer(wsServer, logger)
+
+	// Wire up MCP notifications in callbacks
+	origOnConnected := wsServer.OnAgentConnected
+	wsServer.OnAgentConnected = func(hostname string) {
+		if origOnConnected != nil {
+			origOnConnected(hostname)
+		}
+		mcpServer.NotifyAgentConnected(hostname)
+	}
+
+	origOnDisconnected := wsServer.OnAgentDisconnected
+	wsServer.OnAgentDisconnected = func() {
+		if origOnDisconnected != nil {
+			origOnDisconnected()
+		}
+		mcpServer.NotifyAgentDisconnected()
+	}
+
 	if standalone {
 		fmt.Fprintln(os.Stderr, "\n  Modalità standalone — in attesa di connessioni...")
 		<-ctx.Done()
@@ -147,7 +167,6 @@ func main() {
 	}
 
 	// Run MCP server on stdio
-	mcpServer := mcp.NewMCPServer(wsServer, logger)
 	if err := mcpServer.Run(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
 	}

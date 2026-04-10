@@ -15,15 +15,24 @@ import (
 	"github.com/ivanpalumbo/lokifix/internal/protocol"
 )
 
+// ConnectionInfo holds details about the currently connected remote agent.
+type ConnectionInfo struct {
+	Hostname    string `json:"hostname"`
+	OS          string `json:"os"`
+	Arch        string `json:"arch"`
+	ConnectedAt time.Time `json:"connected_at"`
+}
+
 // Server is the WebSocket server that runs on the operator's machine.
 type Server struct {
 	authMgr    *auth.Manager
 	listener   net.Listener
 	httpServer *http.Server
 
-	mu       sync.Mutex
-	conn     *websocket.Conn
-	agentCtx context.Context
+	mu        sync.Mutex
+	conn      *websocket.Conn
+	agentCtx  context.Context
+	agentInfo *ConnectionInfo
 
 	// Pending requests waiting for responses
 	pending   map[string]chan protocol.Envelope
@@ -82,6 +91,17 @@ func (s *Server) IsConnected() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.conn != nil
+}
+
+// GetConnectionInfo returns info about the connected agent, or nil if none.
+func (s *Server) GetConnectionInfo() *ConnectionInfo {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.agentInfo == nil {
+		return nil
+	}
+	info := *s.agentInfo
+	return &info
 }
 
 // SendRequest sends a request to the remote agent and waits for a response.
@@ -208,6 +228,12 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.conn = conn
 	s.agentCtx = ctx
+	s.agentInfo = &ConnectionInfo{
+		Hostname:    handshake.Hostname,
+		OS:          handshake.OS,
+		Arch:        handshake.Arch,
+		ConnectedAt: time.Now(),
+	}
 	s.mu.Unlock()
 
 	if s.OnAgentConnected != nil {
@@ -219,6 +245,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 	s.conn = nil
+	s.agentInfo = nil
 	s.mu.Unlock()
 
 	if s.OnAgentDisconnected != nil {
