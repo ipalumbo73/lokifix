@@ -2,3 +2,5 @@ build/
 *.exe
 !cmd/
 vendor/
+.claude/
+old_lokifix/
