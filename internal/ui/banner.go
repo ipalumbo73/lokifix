@@ -25,11 +25,12 @@ func printColorBanner() {
 	// Helper: prints a banner row with green borders and colored content
 	row := func(color, text string) {
 		fmt.Printf("  %s|%s%s%s%s|%s\n",
-			t.Green,                  // left | in green
-			color,                    // content color
-			centerPad(text, w),       // padded content
-			t.Reset+t.Green,          // reset content, set green for right |
-			t.Reset)                  // final reset after right |
+			t.Green,                  // 1: left | in green
+			color,                    // 2: content color
+			centerPad(text, w),       // 3: padded content
+			t.Reset,                  // 4: reset content color
+			t.Green,                  // 5: right | in green
+			t.Reset)                  // 6: final reset
 	}
 
 	fmt.Println()
