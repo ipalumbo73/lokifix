@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/ivanpalumbo/lokifix/internal/audit"
 	"github.com/ivanpalumbo/lokifix/internal/executor"
@@ -29,8 +30,10 @@ var toolActionMap = map[string]string{
 	protocol.ToolEnvVars:          audit.ActionEnvVars,
 	protocol.ToolInstalledSoftware: audit.ActionInstalledSW,
 	protocol.ToolEventLog:         audit.ActionEventLog,
-	protocol.ToolFileUpload:       audit.ActionFileUpload,
-	protocol.ToolFileDownload:     audit.ActionFileDownload,
+	protocol.ToolFileUpload:        audit.ActionFileUpload,
+	protocol.ToolFileDownload:      audit.ActionFileDownload,
+	protocol.ToolFileUploadChunk:   audit.ActionFileUploadChunk,
+	protocol.ToolFileDownloadChunk: audit.ActionFileDownloadChunk,
 }
 
 // HandlerConfig holds dependencies for the request handler.
@@ -121,6 +124,10 @@ func dispatch(ctx context.Context, req protocol.Request) protocol.Response {
 		return handleFileUpload(req.Params)
 	case protocol.ToolFileDownload:
 		return handleFileDownload(req.Params)
+	case protocol.ToolFileUploadChunk:
+		return handleFileUploadChunk(req.Params)
+	case protocol.ToolFileDownloadChunk:
+		return handleFileDownloadChunk(req.Params)
 	default:
 		return protocol.Response{Success: false, Error: "unknown tool: " + req.Tool}
 	}
@@ -143,6 +150,12 @@ func needsConfirmation(req protocol.Request) bool {
 			dangerous, _ := audit.IsDangerousFilePath(p.Path)
 			return dangerous
 		}
+	case protocol.ToolFileUploadChunk:
+		var p protocol.FileUploadChunkParams
+		if err := json.Unmarshal(req.Params, &p); err == nil && p.ChunkIndex == 0 {
+			dangerous, _ := audit.IsDangerousFilePath(p.Path)
+			return dangerous
+		}
 	case protocol.ToolFileDelete:
 		return true // Always confirm deletions
 	}
@@ -158,7 +171,7 @@ func getDangerReason(req protocol.Request) string {
 			_, pattern := audit.IsDangerousCommand(p.Command)
 			return "Comando contiene pattern pericoloso: " + pattern
 		}
-	case protocol.ToolFileWrite, protocol.ToolFileEdit, protocol.ToolFileUpload:
+	case protocol.ToolFileWrite, protocol.ToolFileEdit, protocol.ToolFileUpload, protocol.ToolFileUploadChunk:
 		var p struct {
 			Path string `json:"path"`
 		}
@@ -232,6 +245,16 @@ func extractDetail(req protocol.Request) string {
 		var p protocol.FileDownloadParams
 		if json.Unmarshal(req.Params, &p) == nil {
 			return "download <- " + p.Path
+		}
+	case protocol.ToolFileUploadChunk:
+		var p protocol.FileUploadChunkParams
+		if json.Unmarshal(req.Params, &p) == nil {
+			return fmt.Sprintf("upload chunk %d/%d -> %s", p.ChunkIndex+1, p.TotalChunks, p.Path)
+		}
+	case protocol.ToolFileDownloadChunk:
+		var p protocol.FileDownloadChunkParams
+		if json.Unmarshal(req.Params, &p) == nil {
+			return fmt.Sprintf("download chunk offset=%d <- %s", p.Offset, p.Path)
 		}
 	case protocol.ToolRegistry:
 		var p protocol.RegistryReadParams
@@ -447,6 +470,37 @@ func handleFileDownload(params json.RawMessage) protocol.Response {
 	}
 
 	result, err := fileops.DownloadFile(p.Path)
+	if err != nil {
+		return protocol.Response{Success: false, Error: err.Error()}
+	}
+	return protocol.Response{Success: true, Data: result}
+}
+
+func handleFileUploadChunk(params json.RawMessage) protocol.Response {
+	var p protocol.FileUploadChunkParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return protocol.Response{Success: false, Error: "invalid params: " + err.Error()}
+	}
+
+	if err := fileops.UploadChunk(p.Path, p.ContentBase64, p.ChunkIndex, p.TotalChunks, p.Overwrite); err != nil {
+		return protocol.Response{Success: false, Error: err.Error()}
+	}
+
+	pct := (p.ChunkIndex + 1) * 100 / p.TotalChunks
+	status := fmt.Sprintf("chunk %d/%d (%d%%)", p.ChunkIndex+1, p.TotalChunks, pct)
+	if p.ChunkIndex+1 == p.TotalChunks {
+		status = fmt.Sprintf("upload complete: %s (%d bytes)", p.Path, p.TotalSize)
+	}
+	return protocol.Response{Success: true, Data: status}
+}
+
+func handleFileDownloadChunk(params json.RawMessage) protocol.Response {
+	var p protocol.FileDownloadChunkParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return protocol.Response{Success: false, Error: "invalid params: " + err.Error()}
+	}
+
+	result, err := fileops.DownloadChunk(p.Path, p.Offset, p.ChunkSize)
 	if err != nil {
 		return protocol.Response{Success: false, Error: err.Error()}
 	}

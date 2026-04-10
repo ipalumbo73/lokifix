@@ -552,6 +552,11 @@ func readNonBinaryLines(path string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
+const chunkSize = 1 * 1024 * 1024 // 1MB per chunk
+
+// ChunkSize returns the standard chunk size for file transfers.
+func ChunkSize() int { return chunkSize }
+
 // UploadFile decodes base64 content and writes it to the given path.
 func UploadFile(path, contentBase64 string, overwrite bool) error {
 	if !overwrite {
@@ -602,4 +607,73 @@ func DownloadFile(path string) (protocol.FileDownloadResult, error) {
 		Size:          info.Size(),
 		Name:          filepath.Base(path),
 	}, nil
+}
+
+// UploadChunk writes a single chunk to a file during chunked upload.
+// On first chunk (index 0), creates/truncates the file. Subsequent chunks append.
+func UploadChunk(path, contentBase64 string, chunkIndex, totalChunks int, overwrite bool) error {
+	data, err := base64.StdEncoding.DecodeString(contentBase64)
+	if err != nil {
+		return fmt.Errorf("invalid base64 in chunk %d: %w", chunkIndex, err)
+	}
+
+	if chunkIndex == 0 {
+		// First chunk: create or truncate
+		if !overwrite {
+			if _, err := os.Stat(path); err == nil {
+				return fmt.Errorf("file already exists: %s (use overwrite: true to replace)", path)
+			}
+		}
+		dir := filepath.Dir(path)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("mkdir: %w", err)
+		}
+		return os.WriteFile(path, data, 0644)
+	}
+
+	// Subsequent chunks: append
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("open for append chunk %d: %w", chunkIndex, err)
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return fmt.Errorf("write chunk %d: %w", chunkIndex, err)
+	}
+	return nil
+}
+
+// DownloadChunk reads a specific byte range from a file and returns it as base64.
+func DownloadChunk(path string, offset int64, size int) (protocol.FileDownloadChunkResult, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return protocol.FileDownloadChunkResult{}, fmt.Errorf("stat: %w", err)
+	}
+	if info.IsDir() {
+		return protocol.FileDownloadChunkResult{}, fmt.Errorf("cannot download a directory: %s", path)
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return protocol.FileDownloadChunkResult{}, fmt.Errorf("open: %w", err)
+	}
+	defer f.Close()
+
+	buf := make([]byte, size)
+	n, err := f.ReadAt(buf, offset)
+	if err != nil && n == 0 {
+		return protocol.FileDownloadChunkResult{}, fmt.Errorf("read at offset %d: %w", offset, err)
+	}
+
+	result := protocol.FileDownloadChunkResult{
+		ContentBase64: base64.StdEncoding.EncodeToString(buf[:n]),
+		BytesRead:     n,
+		TotalSize:     info.Size(),
+	}
+	if offset == 0 {
+		result.Name = filepath.Base(path)
+	}
+	return result, nil
 }

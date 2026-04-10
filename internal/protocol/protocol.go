@@ -34,8 +34,10 @@ const (
 	ToolEnvVars    = "env_vars"
 	ToolInstalledSoftware = "installed_software"
 	ToolEventLog     = "event_log"
-	ToolFileUpload   = "file_upload"
-	ToolFileDownload = "file_download"
+	ToolFileUpload        = "file_upload"
+	ToolFileDownload      = "file_download"
+	ToolFileUploadChunk   = "file_upload_chunk"
+	ToolFileDownloadChunk = "file_download_chunk"
 )
 
 // Envelope wraps all messages exchanged over the WebSocket.
@@ -247,6 +249,7 @@ type InstalledSoftwareEntry struct {
 }
 
 // FileUploadParams: operator sends base64 content to be written on the remote machine.
+// Kept for backward compat — chunked transfer is preferred for large files.
 type FileUploadParams struct {
 	Path          string `json:"path"`           // destination path on remote
 	ContentBase64 string `json:"content_base64"` // file content encoded in base64
@@ -263,4 +266,29 @@ type FileDownloadResult struct {
 	ContentBase64 string `json:"content_base64"` // file content encoded in base64
 	Size          int64  `json:"size"`           // original file size in bytes
 	Name          string `json:"name"`           // basename of the file
+}
+
+// FileUploadChunkParams: a single chunk of an upload transfer.
+type FileUploadChunkParams struct {
+	Path          string `json:"path"`           // destination path on remote
+	ChunkIndex    int    `json:"chunk_index"`    // 0-based chunk index
+	TotalChunks   int    `json:"total_chunks"`   // total number of chunks
+	TotalSize     int64  `json:"total_size"`     // total file size in bytes
+	ContentBase64 string `json:"content_base64"` // chunk data encoded in base64
+	Overwrite     bool   `json:"overwrite,omitempty"` // only checked on first chunk
+}
+
+// FileDownloadChunkParams: request a specific chunk of a file.
+type FileDownloadChunkParams struct {
+	Path       string `json:"path"`        // source path on remote
+	Offset     int64  `json:"offset"`      // byte offset to start reading
+	ChunkSize  int    `json:"chunk_size"`  // bytes to read
+}
+
+// FileDownloadChunkResult: a single chunk of a download transfer.
+type FileDownloadChunkResult struct {
+	ContentBase64 string `json:"content_base64"` // chunk data encoded in base64
+	BytesRead     int    `json:"bytes_read"`     // actual bytes in this chunk
+	TotalSize     int64  `json:"total_size"`     // total file size
+	Name          string `json:"name"`           // basename (only on first chunk)
 }

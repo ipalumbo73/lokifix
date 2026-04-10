@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -485,7 +486,9 @@ func (s *MCPServer) handleToolsCall(ctx context.Context, msg jsonrpcMessage) jso
 	return s.toolResult(msg.ID, true, string(dataStr))
 }
 
-// handleFileUpload reads a local file, encodes it as base64, and sends it to the remote agent.
+const transferChunkSize = 1 * 1024 * 1024 // 1MB chunks
+
+// handleFileUpload reads a local file, splits it into chunks, and sends them to the remote agent with progress notifications.
 func (s *MCPServer) handleFileUpload(ctx context.Context, id any, arguments json.RawMessage) jsonrpcMessage {
 	var args struct {
 		LocalPath  string `json:"local_path"`
@@ -507,47 +510,65 @@ func (s *MCPServer) handleFileUpload(ctx context.Context, id any, arguments json
 		return s.toolResult(id, false, fmt.Sprintf("file too large: %d bytes (max 50MB)", len(data)))
 	}
 
-	// Encode as base64 and send to remote
-	uploadParams := protocol.FileUploadParams{
-		Path:          args.RemotePath,
-		ContentBase64: base64.StdEncoding.EncodeToString(data),
-		Overwrite:     args.Overwrite,
+	totalSize := len(data)
+	totalChunks := (totalSize + transferChunkSize - 1) / transferChunkSize
+	if totalChunks == 0 {
+		totalChunks = 1
 	}
-	paramsData, _ := json.Marshal(uploadParams)
 
-	reqID := fmt.Sprintf("req-%d", s.requestID.Add(1))
-	req := protocol.Request{
-		Tool:   protocol.ToolFileUpload,
-		Params: paramsData,
-	}
+	s.sendProgressNotification("upload", args.LocalPath, args.RemotePath, 0, totalChunks, int64(totalSize))
 
 	if s.Logger != nil {
-		s.Logger.Log("SEND_"+protocol.ToolFileUpload, fmt.Sprintf("%s -> %s (%d bytes)", args.LocalPath, args.RemotePath, len(data)), "OK")
+		s.Logger.Log("SEND_"+protocol.ToolFileUpload, fmt.Sprintf("%s -> %s (%d bytes, %d chunks)", args.LocalPath, args.RemotePath, totalSize, totalChunks), "OK")
 	}
 
-	resp, err := s.wsServer.SendRequest(ctx, reqID, req)
-	if err != nil {
-		if s.Logger != nil {
-			s.Logger.Log("RECV_"+protocol.ToolFileUpload, err.Error(), "ERROR")
+	for i := 0; i < totalChunks; i++ {
+		start := i * transferChunkSize
+		end := start + transferChunkSize
+		if end > totalSize {
+			end = totalSize
 		}
-		return s.toolResult(id, false, fmt.Sprintf("upload failed: %v", err))
-	}
+		chunk := data[start:end]
 
-	if s.Logger != nil {
-		result := "OK"
+		chunkParams := protocol.FileUploadChunkParams{
+			Path:          args.RemotePath,
+			ChunkIndex:    i,
+			TotalChunks:   totalChunks,
+			TotalSize:     int64(totalSize),
+			ContentBase64: base64.StdEncoding.EncodeToString(chunk),
+			Overwrite:     args.Overwrite,
+		}
+		paramsData, _ := json.Marshal(chunkParams)
+
+		reqID := fmt.Sprintf("req-%d", s.requestID.Add(1))
+		req := protocol.Request{
+			Tool:   protocol.ToolFileUploadChunk,
+			Params: paramsData,
+		}
+
+		resp, err := s.wsServer.SendRequest(ctx, reqID, req)
+		if err != nil {
+			if s.Logger != nil {
+				s.Logger.Log("RECV_"+protocol.ToolFileUploadChunk, fmt.Sprintf("chunk %d failed: %v", i, err), "ERROR")
+			}
+			return s.toolResult(id, false, fmt.Sprintf("upload failed at chunk %d/%d: %v", i+1, totalChunks, err))
+		}
 		if !resp.Success {
-			result = "ERROR"
+			return s.toolResult(id, false, fmt.Sprintf("upload failed at chunk %d/%d: %s", i+1, totalChunks, resp.Error))
 		}
-		s.Logger.Log("RECV_"+protocol.ToolFileUpload, args.RemotePath, result)
+
+		s.sendProgressNotification("upload", args.LocalPath, args.RemotePath, i+1, totalChunks, int64(totalSize))
 	}
 
-	if !resp.Success {
-		return s.toolResult(id, false, resp.Error)
+	if s.Logger != nil {
+		s.Logger.Log("RECV_"+protocol.ToolFileUpload, fmt.Sprintf("complete: %s (%d bytes)", args.RemotePath, totalSize), "OK")
 	}
-	return s.toolResult(id, true, fmt.Sprintf("File uploaded: %s -> %s (%d bytes)", args.LocalPath, args.RemotePath, len(data)))
+
+	return s.toolResult(id, true, fmt.Sprintf("File uploaded: %s -> %s (%s, %d chunks)",
+		args.LocalPath, args.RemotePath, formatBytes(int64(totalSize)), totalChunks))
 }
 
-// handleFileDownload requests a file from the remote agent, decodes base64, and saves it locally.
+// handleFileDownload requests file chunks from the remote agent, assembles them, and saves locally with progress notifications.
 func (s *MCPServer) handleFileDownload(ctx context.Context, id any, arguments json.RawMessage) jsonrpcMessage {
 	var args struct {
 		RemotePath string `json:"remote_path"`
@@ -557,67 +578,155 @@ func (s *MCPServer) handleFileDownload(ctx context.Context, id any, arguments js
 		return s.toolResult(id, false, "invalid params: "+err.Error())
 	}
 
-	// Send download request to remote
-	downloadParams := protocol.FileDownloadParams{Path: args.RemotePath}
-	paramsData, _ := json.Marshal(downloadParams)
-
-	reqID := fmt.Sprintf("req-%d", s.requestID.Add(1))
-	req := protocol.Request{
-		Tool:   protocol.ToolFileDownload,
-		Params: paramsData,
-	}
-
 	if s.Logger != nil {
 		s.Logger.Log("SEND_"+protocol.ToolFileDownload, args.RemotePath, "OK")
 	}
 
-	resp, err := s.wsServer.SendRequest(ctx, reqID, req)
+	// First chunk to get total file size
+	firstChunkResult, err := s.requestDownloadChunk(ctx, args.RemotePath, 0, transferChunkSize)
 	if err != nil {
-		if s.Logger != nil {
-			s.Logger.Log("RECV_"+protocol.ToolFileDownload, err.Error(), "ERROR")
-		}
 		return s.toolResult(id, false, fmt.Sprintf("download failed: %v", err))
 	}
 
-	if !resp.Success {
-		if s.Logger != nil {
-			s.Logger.Log("RECV_"+protocol.ToolFileDownload, resp.Error, "ERROR")
-		}
-		return s.toolResult(id, false, resp.Error)
+	totalSize := firstChunkResult.TotalSize
+	totalChunks := int((totalSize + int64(transferChunkSize) - 1) / int64(transferChunkSize))
+	if totalChunks == 0 {
+		totalChunks = 1
 	}
 
-	// Decode the response data to get base64 content
-	respData, err := json.Marshal(resp.Data)
+	s.sendProgressNotification("download", args.RemotePath, args.LocalPath, 0, totalChunks, totalSize)
+
+	// Decode first chunk
+	firstData, err := base64.StdEncoding.DecodeString(firstChunkResult.ContentBase64)
 	if err != nil {
-		return s.toolResult(id, false, "failed to process response: "+err.Error())
+		return s.toolResult(id, false, "failed to decode first chunk: "+err.Error())
 	}
 
-	var result protocol.FileDownloadResult
-	if err := json.Unmarshal(respData, &result); err != nil {
-		return s.toolResult(id, false, "failed to parse download result: "+err.Error())
-	}
-
-	// Decode base64 and write locally
-	fileData, err := base64.StdEncoding.DecodeString(result.ContentBase64)
-	if err != nil {
-		return s.toolResult(id, false, "failed to decode file content: "+err.Error())
-	}
-
-	// Create parent directories
+	// Create local file
 	dir := filepath.Dir(args.LocalPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return s.toolResult(id, false, "failed to create local directory: "+err.Error())
 	}
-
-	if err := os.WriteFile(args.LocalPath, fileData, 0644); err != nil {
+	if err := os.WriteFile(args.LocalPath, firstData, 0644); err != nil {
 		return s.toolResult(id, false, "failed to write local file: "+err.Error())
 	}
 
-	if s.Logger != nil {
-		s.Logger.Log("RECV_"+protocol.ToolFileDownload, fmt.Sprintf("%s -> %s (%d bytes)", args.RemotePath, args.LocalPath, len(fileData)), "OK")
+	s.sendProgressNotification("download", args.RemotePath, args.LocalPath, 1, totalChunks, totalSize)
+
+	// Request remaining chunks
+	for i := 1; i < totalChunks; i++ {
+		offset := int64(i) * int64(transferChunkSize)
+
+		chunkResult, err := s.requestDownloadChunk(ctx, args.RemotePath, offset, transferChunkSize)
+		if err != nil {
+			return s.toolResult(id, false, fmt.Sprintf("download failed at chunk %d/%d: %v", i+1, totalChunks, err))
+		}
+
+		chunkData, err := base64.StdEncoding.DecodeString(chunkResult.ContentBase64)
+		if err != nil {
+			return s.toolResult(id, false, fmt.Sprintf("failed to decode chunk %d: %v", i+1, err))
+		}
+
+		f, err := os.OpenFile(args.LocalPath, os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			return s.toolResult(id, false, fmt.Sprintf("failed to append chunk %d: %v", i+1, err))
+		}
+		_, err = f.Write(chunkData)
+		f.Close()
+		if err != nil {
+			return s.toolResult(id, false, fmt.Sprintf("failed to write chunk %d: %v", i+1, err))
+		}
+
+		s.sendProgressNotification("download", args.RemotePath, args.LocalPath, i+1, totalChunks, totalSize)
 	}
 
-	return s.toolResult(id, true, fmt.Sprintf("File downloaded: %s -> %s (%d bytes)", args.RemotePath, args.LocalPath, len(fileData)))
+	if s.Logger != nil {
+		s.Logger.Log("RECV_"+protocol.ToolFileDownload, fmt.Sprintf("%s -> %s (%d bytes)", args.RemotePath, args.LocalPath, totalSize), "OK")
+	}
+
+	return s.toolResult(id, true, fmt.Sprintf("File downloaded: %s -> %s (%s, %d chunks)",
+		args.RemotePath, args.LocalPath, formatBytes(totalSize), totalChunks))
+}
+
+// requestDownloadChunk sends a single chunk download request to the remote agent.
+func (s *MCPServer) requestDownloadChunk(ctx context.Context, remotePath string, offset int64, chunkSize int) (protocol.FileDownloadChunkResult, error) {
+	chunkParams := protocol.FileDownloadChunkParams{
+		Path:      remotePath,
+		Offset:    offset,
+		ChunkSize: chunkSize,
+	}
+	paramsData, _ := json.Marshal(chunkParams)
+
+	reqID := fmt.Sprintf("req-%d", s.requestID.Add(1))
+	req := protocol.Request{
+		Tool:   protocol.ToolFileDownloadChunk,
+		Params: paramsData,
+	}
+
+	resp, err := s.wsServer.SendRequest(ctx, reqID, req)
+	if err != nil {
+		return protocol.FileDownloadChunkResult{}, err
+	}
+	if !resp.Success {
+		return protocol.FileDownloadChunkResult{}, fmt.Errorf("%s", resp.Error)
+	}
+
+	respData, err := json.Marshal(resp.Data)
+	if err != nil {
+		return protocol.FileDownloadChunkResult{}, fmt.Errorf("marshal response: %w", err)
+	}
+
+	var result protocol.FileDownloadChunkResult
+	if err := json.Unmarshal(respData, &result); err != nil {
+		return protocol.FileDownloadChunkResult{}, fmt.Errorf("unmarshal chunk result: %w", err)
+	}
+
+	return result, nil
+}
+
+// sendProgressNotification sends a transfer progress notification via MCP.
+func (s *MCPServer) sendProgressNotification(direction, src, dst string, current, total int, totalBytes int64) {
+	pct := 0
+	if total > 0 {
+		pct = current * 100 / total
+	}
+
+	// Build a visual progress bar
+	barLen := 20
+	filled := barLen * pct / 100
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", barLen-filled)
+
+	var msg string
+	if current == 0 {
+		msg = fmt.Sprintf("📦 %s starting: %s -> %s (%s)",
+			direction, src, dst, formatBytes(totalBytes))
+	} else if current == total {
+		msg = fmt.Sprintf("✅ %s complete: %s -> %s (%s) [%s] 100%%",
+			direction, src, dst, formatBytes(totalBytes), bar)
+	} else {
+		msg = fmt.Sprintf("📤 %s [%s] %d%% — chunk %d/%d (%s)",
+			direction, bar, pct, current, total, formatBytes(totalBytes))
+	}
+
+	s.sendNotification("notifications/message", map[string]any{
+		"level":  "info",
+		"logger": "lokifix-transfer",
+		"data":   msg,
+	})
+}
+
+// formatBytes formats bytes to human-readable string.
+func formatBytes(b int64) string {
+	switch {
+	case b >= 1024*1024*1024:
+		return fmt.Sprintf("%.1f GB", float64(b)/(1024*1024*1024))
+	case b >= 1024*1024:
+		return fmt.Sprintf("%.1f MB", float64(b)/(1024*1024))
+	case b >= 1024:
+		return fmt.Sprintf("%.1f KB", float64(b)/1024)
+	default:
+		return fmt.Sprintf("%d B", b)
+	}
 }
 
 func (s *MCPServer) handleConnectionStatus(id any) jsonrpcMessage {
