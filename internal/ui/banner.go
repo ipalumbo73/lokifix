@@ -23,9 +23,9 @@ func printColorBanner() {
 		t.Green, t.Reset, t.Gold, t.Reset, t.Bold+t.Gold, t.Reset, t.Gold, t.Reset, t.Green, t.Reset)
 	fmt.Printf("  %s║%s    %s─────────────────────────────────%s    %s║%s\n",
 		t.Green, t.Reset, t.Gray, t.Reset, t.Green, t.Reset)
-	fmt.Printf("  %s║%s        Remote Agent  %sv%s%s            %s║%s\n",
+	fmt.Printf("  %s║%s      Remote Agent  %sv%s%s              %s║%s\n",
 		t.Green, t.Reset, t.White, version, t.Reset, t.Green, t.Reset)
-	fmt.Printf("  %s║%s        %sPowered by Claude · Anthropic%s   %s║%s\n",
+	fmt.Printf("  %s║%s      %sPowered by Claude · Anthropic%s     %s║%s\n",
 		t.Green, t.Reset, t.Cyan, t.Reset, t.Green, t.Reset)
 	fmt.Printf("  %s║%s                                        %s║%s\n", t.Green, t.Reset, t.Green, t.Reset)
 	fmt.Printf("  %s╚════════════════════════════════════════╝%s\n", t.Green, t.Reset)
@@ -38,8 +38,8 @@ func printPlainBanner() {
 	fmt.Println("  ║                                        ║")
 	fmt.Println("  ║    ◈  L · O · K · I · F · I · X  ◈    ║")
 	fmt.Println("  ║    ─────────────────────────────────    ║")
-	fmt.Printf("  ║        Remote Agent  v%s            ║\n", version)
-	fmt.Println("  ║        Powered by Claude · Anthropic   ║")
+	fmt.Printf("  ║      Remote Agent  v%s              ║\n", version)
+	fmt.Println("  ║      Powered by Claude · Anthropic     ║")
 	fmt.Println("  ║                                        ║")
 	fmt.Println("  ╚════════════════════════════════════════╝")
 	fmt.Println()
