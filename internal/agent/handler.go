@@ -29,6 +29,8 @@ var toolActionMap = map[string]string{
 	protocol.ToolEnvVars:          audit.ActionEnvVars,
 	protocol.ToolInstalledSoftware: audit.ActionInstalledSW,
 	protocol.ToolEventLog:         audit.ActionEventLog,
+	protocol.ToolFileUpload:       audit.ActionFileUpload,
+	protocol.ToolFileDownload:     audit.ActionFileDownload,
 }
 
 // HandlerConfig holds dependencies for the request handler.
@@ -115,6 +117,10 @@ func dispatch(ctx context.Context, req protocol.Request) protocol.Response {
 		return handleInstalledSoftware(ctx)
 	case protocol.ToolEventLog:
 		return handleEventLog(ctx, req.Params)
+	case protocol.ToolFileUpload:
+		return handleFileUpload(req.Params)
+	case protocol.ToolFileDownload:
+		return handleFileDownload(req.Params)
 	default:
 		return protocol.Response{Success: false, Error: "unknown tool: " + req.Tool}
 	}
@@ -129,7 +135,7 @@ func needsConfirmation(req protocol.Request) bool {
 			dangerous, _ := audit.IsDangerousCommand(p.Command)
 			return dangerous
 		}
-	case protocol.ToolFileWrite, protocol.ToolFileEdit:
+	case protocol.ToolFileWrite, protocol.ToolFileEdit, protocol.ToolFileUpload:
 		var p struct {
 			Path string `json:"path"`
 		}
@@ -152,7 +158,7 @@ func getDangerReason(req protocol.Request) string {
 			_, pattern := audit.IsDangerousCommand(p.Command)
 			return "Comando contiene pattern pericoloso: " + pattern
 		}
-	case protocol.ToolFileWrite, protocol.ToolFileEdit:
+	case protocol.ToolFileWrite, protocol.ToolFileEdit, protocol.ToolFileUpload:
 		var p struct {
 			Path string `json:"path"`
 		}
@@ -176,7 +182,11 @@ func extractDetail(req protocol.Request) string {
 			if shell == "" {
 				shell = "powershell"
 			}
-			return "[" + shell + "] " + p.Command
+			detail := "[" + shell + "] " + p.Command
+			if p.Description != "" {
+				detail = p.Description + " | " + detail
+			}
+			return detail
 		}
 	case protocol.ToolFileRead:
 		var p protocol.FileReadParams
@@ -212,6 +222,16 @@ func extractDetail(req protocol.Request) string {
 		var p protocol.GrepParams
 		if json.Unmarshal(req.Params, &p) == nil {
 			return "'" + p.Pattern + "' in " + p.Path
+		}
+	case protocol.ToolFileUpload:
+		var p protocol.FileUploadParams
+		if json.Unmarshal(req.Params, &p) == nil {
+			return "upload -> " + p.Path
+		}
+	case protocol.ToolFileDownload:
+		var p protocol.FileDownloadParams
+		if json.Unmarshal(req.Params, &p) == nil {
+			return "download <- " + p.Path
 		}
 	case protocol.ToolRegistry:
 		var p protocol.RegistryReadParams
@@ -275,7 +295,7 @@ func handleFileEdit(params json.RawMessage) protocol.Response {
 		return protocol.Response{Success: false, Error: "invalid params: " + err.Error()}
 	}
 
-	if err := fileops.EditFile(p.Path, p.OldString, p.NewString); err != nil {
+	if err := fileops.EditFile(p.Path, p.OldString, p.NewString, p.ReplaceAll); err != nil {
 		return protocol.Response{Success: false, Error: err.Error()}
 	}
 	return protocol.Response{Success: true, Data: "file edited successfully"}
@@ -325,11 +345,34 @@ func handleGrep(params json.RawMessage) protocol.Response {
 		return protocol.Response{Success: false, Error: "invalid params: " + err.Error()}
 	}
 
-	matches, err := fileops.GrepFile(p.Pattern, p.Path, p.Glob, p.Context)
+	// Resolve context: -C sets both before/after, specific -A/-B override
+	ctxBefore := p.Context
+	ctxAfter := p.Context
+	if p.ContextBefore > 0 {
+		ctxBefore = p.ContextBefore
+	}
+	if p.ContextAfter > 0 {
+		ctxAfter = p.ContextAfter
+	}
+
+	opts := fileops.GrepOptions{
+		Pattern:         p.Pattern,
+		Path:            p.Path,
+		GlobFilter:      p.Glob,
+		TypeFilter:      p.Type,
+		OutputMode:      p.OutputMode,
+		CaseInsensitive: p.CaseInsensitive,
+		ContextBefore:   ctxBefore,
+		ContextAfter:    ctxAfter,
+		HeadLimit:       p.HeadLimit,
+		Multiline:       p.Multiline,
+	}
+
+	result, err := fileops.GrepFile(opts)
 	if err != nil {
 		return protocol.Response{Success: false, Error: err.Error()}
 	}
-	return protocol.Response{Success: true, Data: matches}
+	return protocol.Response{Success: true, Data: result}
 }
 
 func handleSysInfo(ctx context.Context) protocol.Response {
@@ -383,4 +426,29 @@ func handleEventLog(ctx context.Context, params json.RawMessage) protocol.Respon
 
 	entries := sysinfo.GetEventLog(ctx, p.LogName, p.MaxItems, p.Level)
 	return protocol.Response{Success: true, Data: entries}
+}
+
+func handleFileUpload(params json.RawMessage) protocol.Response {
+	var p protocol.FileUploadParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return protocol.Response{Success: false, Error: "invalid params: " + err.Error()}
+	}
+
+	if err := fileops.UploadFile(p.Path, p.ContentBase64, p.Overwrite); err != nil {
+		return protocol.Response{Success: false, Error: err.Error()}
+	}
+	return protocol.Response{Success: true, Data: "file uploaded successfully to " + p.Path}
+}
+
+func handleFileDownload(params json.RawMessage) protocol.Response {
+	var p protocol.FileDownloadParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return protocol.Response{Success: false, Error: "invalid params: " + err.Error()}
+	}
+
+	result, err := fileops.DownloadFile(p.Path)
+	if err != nil {
+		return protocol.Response{Success: false, Error: err.Error()}
+	}
+	return protocol.Response{Success: true, Data: result}
 }

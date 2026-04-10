@@ -37,18 +37,20 @@ In `~/.claude/claude_desktop_config.json`:
 }
 ```
 
-## Tool remoti disponibili
+## Tool remoti disponibili (19 tool)
 
 | Tool | Descrizione |
 |------|-------------|
-| `remote_shell` | Esecuzione comandi PowerShell/CMD |
-| `remote_file_read` | Lettura file con numeri di riga |
-| `remote_file_write` | Scrittura file |
-| `remote_file_edit` | Sostituzione stringa in file |
-| `remote_file_list` | Elenco directory |
-| `remote_file_delete` | Eliminazione file |
-| `remote_glob` | Ricerca file per pattern |
-| `remote_grep` | Ricerca testo in file |
+| `remote_shell` | Esecuzione comandi PowerShell/CMD (con campo description per audit) |
+| `remote_file_read` | Lettura file con numeri di riga, offset e limit |
+| `remote_file_write` | Scrittura file (auto-crea directory) |
+| `remote_file_edit` | Sostituzione stringa in file (supporta replace_all) |
+| `remote_file_list` | Elenco directory con metadati |
+| `remote_file_delete` | Eliminazione file/directory (ricorsivo, con conferma) |
+| `remote_file_upload` | Trasferimento file operatore → remoto (base64, binari, max 50MB) |
+| `remote_file_download` | Trasferimento file remoto → operatore (base64, binari, max 50MB) |
+| `remote_glob` | Ricerca file per pattern (supporta ** ricorsivo, sort by modtime) |
+| `remote_grep` | Ricerca regex completa (output_mode, case_insensitive, context, type filter, head_limit, multiline) |
 | `remote_sysinfo` | Info sistema (OS, CPU, RAM, uptime) |
 | `remote_processes` | Processi in esecuzione (top 50) |
 | `remote_services` | Servizi Windows |
@@ -57,6 +59,7 @@ In `~/.claude/claude_desktop_config.json`:
 | `remote_env_vars` | Variabili d'ambiente |
 | `remote_installed_software` | Software installato |
 | `remote_event_log` | Event log Windows |
+| `remote_connection_status` | Stato connessione agente (locale, non richiede agente) |
 
 ## Build
 

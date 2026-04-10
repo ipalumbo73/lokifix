@@ -33,7 +33,9 @@ const (
 	ToolNetInfo    = "net_info"
 	ToolEnvVars    = "env_vars"
 	ToolInstalledSoftware = "installed_software"
-	ToolEventLog   = "event_log"
+	ToolEventLog     = "event_log"
+	ToolFileUpload   = "file_upload"
+	ToolFileDownload = "file_download"
 )
 
 // Envelope wraps all messages exchanged over the WebSocket.
@@ -103,9 +105,10 @@ type AuthResult struct {
 // --- Tool parameter types ---
 
 type ShellExecParams struct {
-	Command string `json:"command"`
-	Shell   string `json:"shell,omitempty"` // "powershell" (default), "cmd"
-	Timeout int    `json:"timeout,omitempty"` // seconds, default 120
+	Command     string `json:"command"`
+	Shell       string `json:"shell,omitempty"`       // "powershell" (default), "cmd"
+	Timeout     int    `json:"timeout,omitempty"`      // seconds, default 120
+	Description string `json:"description,omitempty"`  // human-readable description for audit
 }
 
 type ShellExecResult struct {
@@ -133,9 +136,10 @@ type FileWriteParams struct {
 }
 
 type FileEditParams struct {
-	Path      string `json:"path"`
-	OldString string `json:"old_string"`
-	NewString string `json:"new_string"`
+	Path       string `json:"path"`
+	OldString  string `json:"old_string"`
+	NewString  string `json:"new_string"`
+	ReplaceAll bool   `json:"replace_all,omitempty"` // replace all occurrences instead of requiring uniqueness
 }
 
 type FileListParams struct {
@@ -159,16 +163,28 @@ type GlobParams struct {
 }
 
 type GrepParams struct {
-	Pattern string `json:"pattern"`
-	Path    string `json:"path,omitempty"`
-	Glob    string `json:"glob,omitempty"`
-	Context int    `json:"context,omitempty"`
+	Pattern        string `json:"pattern"`
+	Path           string `json:"path,omitempty"`
+	Glob           string `json:"glob,omitempty"`
+	Type           string `json:"type,omitempty"`             // file type filter: "go", "js", "py", etc.
+	OutputMode     string `json:"output_mode,omitempty"`      // "content" (default), "files_with_matches", "count"
+	CaseInsensitive bool  `json:"case_insensitive,omitempty"` // case-insensitive search
+	ContextBefore  int    `json:"context_before,omitempty"`   // lines before match (-B)
+	ContextAfter   int    `json:"context_after,omitempty"`    // lines after match (-A)
+	Context        int    `json:"context,omitempty"`          // lines before and after (-C)
+	HeadLimit      int    `json:"head_limit,omitempty"`       // max results (default: 250)
+	Multiline      bool   `json:"multiline,omitempty"`        // enable multiline matching
 }
 
 type GrepMatch struct {
 	File    string `json:"file"`
 	Line    int    `json:"line"`
 	Content string `json:"content"`
+}
+
+type GrepCountEntry struct {
+	File  string `json:"file"`
+	Count int    `json:"count"`
 }
 
 type SysInfoResult struct {
@@ -228,4 +244,23 @@ type InstalledSoftwareEntry struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
 	Vendor  string `json:"vendor"`
+}
+
+// FileUploadParams: operator sends base64 content to be written on the remote machine.
+type FileUploadParams struct {
+	Path          string `json:"path"`           // destination path on remote
+	ContentBase64 string `json:"content_base64"` // file content encoded in base64
+	Overwrite     bool   `json:"overwrite,omitempty"` // overwrite if exists (default: false)
+}
+
+// FileDownloadParams: operator requests a file from the remote machine.
+type FileDownloadParams struct {
+	Path string `json:"path"` // source path on remote
+}
+
+// FileDownloadResult: remote sends back the file as base64.
+type FileDownloadResult struct {
+	ContentBase64 string `json:"content_base64"` // file content encoded in base64
+	Size          int64  `json:"size"`           // original file size in bytes
+	Name          string `json:"name"`           // basename of the file
 }

@@ -29,6 +29,8 @@ const (
 	ActionEnvVars         = "ENV_VARS"
 	ActionInstalledSW     = "INSTALLED_SW"
 	ActionEventLog        = "EVENT_LOG"
+	ActionFileUpload      = "FILE_UPLOAD"
+	ActionFileDownload    = "FILE_DOWNLOAD"
 	ActionConnect         = "SESSION_START"
 	ActionDisconnect      = "SESSION_END"
 	ActionDenied          = "DENIED"

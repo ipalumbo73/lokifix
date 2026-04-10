@@ -3,11 +3,13 @@ package mcp
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -169,9 +171,10 @@ func (s *MCPServer) handleToolsList(msg jsonrpcMessage) jsonrpcMessage {
 			"inputSchema": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"command": map[string]any{"type": "string", "description": "The command to execute"},
-					"shell":   map[string]any{"type": "string", "enum": []string{"powershell", "cmd"}, "description": "Shell to use (default: powershell)"},
-					"timeout": map[string]any{"type": "integer", "description": "Timeout in seconds (default: 120)"},
+					"command":     map[string]any{"type": "string", "description": "The command to execute"},
+					"shell":       map[string]any{"type": "string", "enum": []string{"powershell", "cmd"}, "description": "Shell to use (default: powershell)"},
+					"timeout":     map[string]any{"type": "integer", "description": "Timeout in seconds (default: 120)"},
+					"description": map[string]any{"type": "string", "description": "Human-readable description of what this command does (for audit logging)"},
 				},
 				"required": []string{"command"},
 			},
@@ -203,13 +206,14 @@ func (s *MCPServer) handleToolsList(msg jsonrpcMessage) jsonrpcMessage {
 		},
 		{
 			"name":        "remote_file_edit",
-			"description": "Edit a file on the remote machine by replacing a unique string.",
+			"description": "Edit a file on the remote machine by replacing a string. By default old_string must be unique; use replace_all to replace every occurrence.",
 			"inputSchema": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"path":       map[string]any{"type": "string", "description": "Absolute path to the file"},
-					"old_string": map[string]any{"type": "string", "description": "Exact string to find (must be unique)"},
-					"new_string": map[string]any{"type": "string", "description": "Replacement string"},
+					"path":        map[string]any{"type": "string", "description": "Absolute path to the file"},
+					"old_string":  map[string]any{"type": "string", "description": "Exact string to find"},
+					"new_string":  map[string]any{"type": "string", "description": "Replacement string"},
+					"replace_all": map[string]any{"type": "boolean", "description": "Replace all occurrences (default: false, requires unique match)"},
 				},
 				"required": []string{"path", "old_string", "new_string"},
 			},
@@ -227,36 +231,44 @@ func (s *MCPServer) handleToolsList(msg jsonrpcMessage) jsonrpcMessage {
 		},
 		{
 			"name":        "remote_file_delete",
-			"description": "Delete a file on the remote machine.",
+			"description": "Delete a file or directory (recursively) on the remote machine. Always requires user confirmation.",
 			"inputSchema": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"path": map[string]any{"type": "string", "description": "Path to delete"},
+					"path": map[string]any{"type": "string", "description": "Path to file or directory to delete"},
 				},
 				"required": []string{"path"},
 			},
 		},
 		{
 			"name":        "remote_glob",
-			"description": "Find files matching a glob pattern on the remote machine.",
+			"description": "Find files matching a glob pattern on the remote machine. Supports ** for recursive matching (e.g. src/**/*.go). Results sorted by modification time.",
 			"inputSchema": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"pattern": map[string]any{"type": "string", "description": "Glob pattern (e.g. *.log, *.txt)"},
-					"path":    map[string]any{"type": "string", "description": "Base directory (default: current dir)"},
+					"pattern": map[string]any{"type": "string", "description": "Glob pattern (e.g. *.log, src/**/*.go, **/*.txt)"},
+					"path":    map[string]any{"type": "string", "description": "Base directory to search in (default: current dir)"},
 				},
 				"required": []string{"pattern"},
 			},
 		},
 		{
 			"name":        "remote_grep",
-			"description": "Search for a text pattern in files on the remote machine.",
+			"description": "Search for a regex pattern in files on the remote machine. Supports multiple output modes, context lines, case-insensitive and multiline matching.",
 			"inputSchema": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"pattern": map[string]any{"type": "string", "description": "Text pattern to search for"},
-					"path":    map[string]any{"type": "string", "description": "Directory to search in"},
-					"glob":    map[string]any{"type": "string", "description": "Filter files by glob pattern"},
+					"pattern":          map[string]any{"type": "string", "description": "Regex pattern to search for"},
+					"path":             map[string]any{"type": "string", "description": "File or directory to search in (default: current dir)"},
+					"glob":             map[string]any{"type": "string", "description": "Glob pattern to filter files (e.g. *.js, *.{ts,tsx})"},
+					"type":             map[string]any{"type": "string", "description": "File type filter: go, js, ts, py, java, rust, c, cpp, etc."},
+					"output_mode":      map[string]any{"type": "string", "enum": []string{"content", "files_with_matches", "count"}, "description": "Output mode (default: content)"},
+					"case_insensitive": map[string]any{"type": "boolean", "description": "Case-insensitive search"},
+					"context_before":   map[string]any{"type": "integer", "description": "Lines to show before each match (-B)"},
+					"context_after":    map[string]any{"type": "integer", "description": "Lines to show after each match (-A)"},
+					"context":          map[string]any{"type": "integer", "description": "Lines to show before and after each match (-C)"},
+					"head_limit":       map[string]any{"type": "integer", "description": "Max results to return (default: 250)"},
+					"multiline":        map[string]any{"type": "boolean", "description": "Enable multiline matching where . matches newlines"},
 				},
 				"required": []string{"pattern"},
 			},
@@ -334,6 +346,31 @@ func (s *MCPServer) handleToolsList(msg jsonrpcMessage) jsonrpcMessage {
 			},
 		},
 		{
+			"name":        "remote_file_upload",
+			"description": "Upload a file from the operator machine to the remote machine. Reads a local file, encodes it as base64, and writes it on the remote. Supports binary files up to 50MB.",
+			"inputSchema": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"local_path":  map[string]any{"type": "string", "description": "Absolute path of the file on the OPERATOR machine to upload"},
+					"remote_path": map[string]any{"type": "string", "description": "Absolute path where the file will be written on the REMOTE machine"},
+					"overwrite":   map[string]any{"type": "boolean", "description": "Overwrite if file already exists on remote (default: false)"},
+				},
+				"required": []string{"local_path", "remote_path"},
+			},
+		},
+		{
+			"name":        "remote_file_download",
+			"description": "Download a file from the remote machine to the operator machine. Reads the remote file, encodes it as base64, and writes it locally. Supports binary files up to 50MB.",
+			"inputSchema": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"remote_path": map[string]any{"type": "string", "description": "Absolute path of the file on the REMOTE machine to download"},
+					"local_path":  map[string]any{"type": "string", "description": "Absolute path where the file will be saved on the OPERATOR machine"},
+				},
+				"required": []string{"remote_path", "local_path"},
+			},
+		},
+		{
 			"name":        "remote_connection_status",
 			"description": "Check the connection status of the remote agent. Returns hostname, OS, architecture, connection time, and duration.",
 			"inputSchema": map[string]any{
@@ -368,6 +405,14 @@ func (s *MCPServer) handleToolsCall(ctx context.Context, msg jsonrpcMessage) jso
 
 	if !s.wsServer.IsConnected() {
 		return s.toolResult(msg.ID, false, "Error: no remote agent connected. Wait for the agent to connect.")
+	}
+
+	// Handle file transfer tools (require local I/O on operator side)
+	if params.Name == "remote_file_upload" {
+		return s.handleFileUpload(ctx, msg.ID, params.Arguments)
+	}
+	if params.Name == "remote_file_download" {
+		return s.handleFileDownload(ctx, msg.ID, params.Arguments)
 	}
 
 	// Map MCP tool names to protocol tool names
@@ -438,6 +483,141 @@ func (s *MCPServer) handleToolsCall(ctx context.Context, msg jsonrpcMessage) jso
 		return s.toolResult(msg.ID, true, fmt.Sprintf("%v", resp.Data))
 	}
 	return s.toolResult(msg.ID, true, string(dataStr))
+}
+
+// handleFileUpload reads a local file, encodes it as base64, and sends it to the remote agent.
+func (s *MCPServer) handleFileUpload(ctx context.Context, id any, arguments json.RawMessage) jsonrpcMessage {
+	var args struct {
+		LocalPath  string `json:"local_path"`
+		RemotePath string `json:"remote_path"`
+		Overwrite  bool   `json:"overwrite"`
+	}
+	if err := json.Unmarshal(arguments, &args); err != nil {
+		return s.toolResult(id, false, "invalid params: "+err.Error())
+	}
+
+	// Read local file
+	data, err := os.ReadFile(args.LocalPath)
+	if err != nil {
+		return s.toolResult(id, false, fmt.Sprintf("failed to read local file: %v", err))
+	}
+
+	const maxSize = 50 * 1024 * 1024
+	if len(data) > maxSize {
+		return s.toolResult(id, false, fmt.Sprintf("file too large: %d bytes (max 50MB)", len(data)))
+	}
+
+	// Encode as base64 and send to remote
+	uploadParams := protocol.FileUploadParams{
+		Path:          args.RemotePath,
+		ContentBase64: base64.StdEncoding.EncodeToString(data),
+		Overwrite:     args.Overwrite,
+	}
+	paramsData, _ := json.Marshal(uploadParams)
+
+	reqID := fmt.Sprintf("req-%d", s.requestID.Add(1))
+	req := protocol.Request{
+		Tool:   protocol.ToolFileUpload,
+		Params: paramsData,
+	}
+
+	if s.Logger != nil {
+		s.Logger.Log("SEND_"+protocol.ToolFileUpload, fmt.Sprintf("%s -> %s (%d bytes)", args.LocalPath, args.RemotePath, len(data)), "OK")
+	}
+
+	resp, err := s.wsServer.SendRequest(ctx, reqID, req)
+	if err != nil {
+		if s.Logger != nil {
+			s.Logger.Log("RECV_"+protocol.ToolFileUpload, err.Error(), "ERROR")
+		}
+		return s.toolResult(id, false, fmt.Sprintf("upload failed: %v", err))
+	}
+
+	if s.Logger != nil {
+		result := "OK"
+		if !resp.Success {
+			result = "ERROR"
+		}
+		s.Logger.Log("RECV_"+protocol.ToolFileUpload, args.RemotePath, result)
+	}
+
+	if !resp.Success {
+		return s.toolResult(id, false, resp.Error)
+	}
+	return s.toolResult(id, true, fmt.Sprintf("File uploaded: %s -> %s (%d bytes)", args.LocalPath, args.RemotePath, len(data)))
+}
+
+// handleFileDownload requests a file from the remote agent, decodes base64, and saves it locally.
+func (s *MCPServer) handleFileDownload(ctx context.Context, id any, arguments json.RawMessage) jsonrpcMessage {
+	var args struct {
+		RemotePath string `json:"remote_path"`
+		LocalPath  string `json:"local_path"`
+	}
+	if err := json.Unmarshal(arguments, &args); err != nil {
+		return s.toolResult(id, false, "invalid params: "+err.Error())
+	}
+
+	// Send download request to remote
+	downloadParams := protocol.FileDownloadParams{Path: args.RemotePath}
+	paramsData, _ := json.Marshal(downloadParams)
+
+	reqID := fmt.Sprintf("req-%d", s.requestID.Add(1))
+	req := protocol.Request{
+		Tool:   protocol.ToolFileDownload,
+		Params: paramsData,
+	}
+
+	if s.Logger != nil {
+		s.Logger.Log("SEND_"+protocol.ToolFileDownload, args.RemotePath, "OK")
+	}
+
+	resp, err := s.wsServer.SendRequest(ctx, reqID, req)
+	if err != nil {
+		if s.Logger != nil {
+			s.Logger.Log("RECV_"+protocol.ToolFileDownload, err.Error(), "ERROR")
+		}
+		return s.toolResult(id, false, fmt.Sprintf("download failed: %v", err))
+	}
+
+	if !resp.Success {
+		if s.Logger != nil {
+			s.Logger.Log("RECV_"+protocol.ToolFileDownload, resp.Error, "ERROR")
+		}
+		return s.toolResult(id, false, resp.Error)
+	}
+
+	// Decode the response data to get base64 content
+	respData, err := json.Marshal(resp.Data)
+	if err != nil {
+		return s.toolResult(id, false, "failed to process response: "+err.Error())
+	}
+
+	var result protocol.FileDownloadResult
+	if err := json.Unmarshal(respData, &result); err != nil {
+		return s.toolResult(id, false, "failed to parse download result: "+err.Error())
+	}
+
+	// Decode base64 and write locally
+	fileData, err := base64.StdEncoding.DecodeString(result.ContentBase64)
+	if err != nil {
+		return s.toolResult(id, false, "failed to decode file content: "+err.Error())
+	}
+
+	// Create parent directories
+	dir := filepath.Dir(args.LocalPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return s.toolResult(id, false, "failed to create local directory: "+err.Error())
+	}
+
+	if err := os.WriteFile(args.LocalPath, fileData, 0644); err != nil {
+		return s.toolResult(id, false, "failed to write local file: "+err.Error())
+	}
+
+	if s.Logger != nil {
+		s.Logger.Log("RECV_"+protocol.ToolFileDownload, fmt.Sprintf("%s -> %s (%d bytes)", args.RemotePath, args.LocalPath, len(fileData)), "OK")
+	}
+
+	return s.toolResult(id, true, fmt.Sprintf("File downloaded: %s -> %s (%d bytes)", args.RemotePath, args.LocalPath, len(fileData)))
 }
 
 func (s *MCPServer) handleConnectionStatus(id any) jsonrpcMessage {

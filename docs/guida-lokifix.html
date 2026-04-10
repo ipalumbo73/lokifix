@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LokiFix - Guida Tecnica Completa</title>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --primary-dark: #1557b0;
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text: #202124;
+            --text-secondary: #5f6368;
+            --border: #dadce0;
+            --code-bg: #f1f3f4;
+            --success: #34a853;
+            --warning: #fbbc04;
+            --danger: #ea4335;
+            --info: #4285f4;
+            --accent: #8ab4f8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            font-size: 16px;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+        .header h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+        .header .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.85;
+            position: relative;
+        }
+        .header .version {
+            display: inline-block;
+            background: rgba(255,255,255,0.15);
+            padding: 0.3rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            position: relative;
+        }
+
+        /* Navigation */
+        .nav {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .nav-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        .nav a {
+            color: var(--primary);
+            text-decoration: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .nav a:hover {
+            background: var(--code-bg);
+        }
+
+        /* Main content */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Sections */
+        .section {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        h2 {
+            font-size: 1.6rem;
+            color: var(--primary-dark);
+            margin-bottom: 1.2rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        h2 .num {
+            background: var(--primary);
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            color: var(--text);
+            margin: 1.5rem 0 0.8rem;
+        }
+
+        p { margin-bottom: 1rem; }
+
+        /* Code blocks */
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1.2rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        code {
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9em;
+        }
+        p code, li code, td code {
+            background: var(--code-bg);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            color: #d93025;
+        }
+
+        /* Diagrams */
+        .diagram {
+            background: #fafbfc;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            overflow-x: auto;
+        }
+        .diagram pre {
+            background: transparent;
+            color: var(--text);
+            text-align: left;
+            display: inline-block;
+            font-size: 0.85rem;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.95rem;
+        }
+        th {
+            background: var(--primary);
+            color: white;
+            padding: 0.8rem 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 0.7rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        tr:hover td {
+            background: #f0f4ff;
+        }
+        tr:last-child td { border-bottom: none; }
+
+        /* Alert boxes */
+        .alert {
+            padding: 1rem 1.2rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            display: flex;
+            gap: 0.8rem;
+            align-items: flex-start;
+        }
+        .alert-icon {
+            font-size: 1.3rem;
+            flex-shrink: 0;
+            line-height: 1.4;
+        }
+        .alert-info {
+            background: #e8f0fe;
+            border-left: 4px solid var(--info);
+        }
+        .alert-warning {
+            background: #fef7e0;
+            border-left: 4px solid var(--warning);
+        }
+        .alert-danger {
+            background: #fce8e6;
+            border-left: 4px solid var(--danger);
+        }
+        .alert-success {
+            background: #e6f4ea;
+            border-left: 4px solid var(--success);
+        }
+
+        /* Flow steps */
+        .flow {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            margin: 1.5rem 0;
+        }
+        .flow-step {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+        .flow-line {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .flow-dot {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        .flow-connector {
+            width: 2px;
+            height: 40px;
+            background: var(--accent);
+        }
+        .flow-content {
+            padding: 0.3rem 0 1rem;
+        }
+        .flow-content strong {
+            display: block;
+            margin-bottom: 0.3rem;
+        }
+
+        /* Two columns */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin: 1rem 0;
+        }
+        @media (max-width: 768px) {
+            .two-col { grid-template-columns: 1fr; }
+        }
+        .col-card {
+            background: var(--code-bg);
+            border-radius: 8px;
+            padding: 1.2rem;
+        }
+        .col-card h4 {
+            color: var(--primary-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .badge-blue { background: #e8f0fe; color: var(--primary); }
+        .badge-green { background: #e6f4ea; color: var(--success); }
+        .badge-red { background: #fce8e6; color: var(--danger); }
+        .badge-orange { background: #fef7e0; color: #e37400; }
+
+        /* Lists */
+        ul, ol {
+            margin: 0.5rem 0 1rem 1.5rem;
+        }
+        li { margin-bottom: 0.4rem; }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Separator */
+        .separator {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 2rem 0;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        .separator::before, .separator::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* Print styles */
+        @media print {
+            .nav { display: none; }
+            .section { break-inside: avoid; box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <h1>LokiFix Remote Agent</h1>
+    <div class="subtitle">Guida Tecnica Completa per Operatori IT</div>
+    <div class="version">Versione 1.1 &mdash; Aprile 2026</div>
+</div>
+
+<!-- NAVIGATION -->
+<div class="nav">
+    <div class="nav-inner">
+        <a href="#cosa-e">Cos'e LokiFix</a>
+        <a href="#architettura">Architettura</a>
+        <a href="#componenti">Componenti</a>
+        <a href="#installazione">Installazione</a>
+        <a href="#connessione">Connessione</a>
+        <a href="#autenticazione">Autenticazione</a>
+        <a href="#tools">Tool Remoti</a>
+        <a href="#sicurezza">Sicurezza</a>
+        <a href="#audit">Audit</a>
+        <a href="#troubleshooting">Troubleshooting</a>
+    </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="container">
+
+<!-- 1. COS'E LOKIFIX -->
+<div class="section" id="cosa-e">
+    <h2><span class="num">1</span> Cos'e LokiFix?</h2>
+
+    <p><strong>LokiFix</strong> e un sistema che ti permette di controllare un PC Windows remoto usando <strong>Claude Code</strong> (l'assistente AI di Anthropic), senza dover installare Claude Code sulla macchina remota.</p>
+
+    <p>In parole semplici: tu parli con Claude Code sul tuo PC, e lui puo eseguire comandi, leggere file, controllare servizi e molto altro sul PC del cliente &mdash; tutto attraverso un tunnel sicuro.</p>
+
+    <div class="alert alert-info">
+        <span class="alert-icon">&#x2139;&#xFE0F;</span>
+        <div>
+            <strong>Caso d'uso tipico:</strong> Un tecnico IT deve diagnosticare un problema su un PC remoto. Invece di installare software pesante o chiedere al cliente di seguire istruzioni complicate, gli manda un singolo file <code>.exe</code>. Il cliente lo avvia, condivide un codice di 6 caratteri, e il tecnico puo operare sulla macchina tramite Claude Code.
+        </div>
+    </div>
+
+    <h3>Vantaggi rispetto ad altre soluzioni</h3>
+    <ul>
+        <li><strong>Zero installazione sul remoto</strong> &mdash; un singolo <code>.exe</code> portabile, nessun installer</li>
+        <li><strong>Nessuna porta da aprire</strong> &mdash; il tunnel e in uscita, funziona anche dietro firewall/NAT</li>
+        <li><strong>Assistenza AI integrata</strong> &mdash; Claude Code analizza e suggerisce soluzioni in tempo reale</li>
+        <li><strong>Tracciabilita completa</strong> &mdash; ogni azione viene registrata in un audit log a prova di manomissione</li>
+        <li><strong>Protezione operazioni pericolose</strong> &mdash; il PC remoto chiede conferma prima di azioni rischiose</li>
+    </ul>
+</div>
+
+<!-- 2. ARCHITETTURA -->
+<div class="section" id="architettura">
+    <h2><span class="num">2</span> Come Funziona (Architettura)</h2>
+
+    <p>LokiFix e composto da <strong>due programmi</strong> che comunicano tra loro attraverso un tunnel Cloudflare:</p>
+
+    <div class="diagram">
+        <pre>
+   PC OPERATORE (il tuo PC)                        PC REMOTO (il PC del cliente)
+  +---------------------------+                   +---------------------------+
+  |                           |                   |                           |
+  |   Claude Code (CLI/IDE)   |                   |   lokifix-agent.exe       |
+  |         |                 |                   |         |                 |
+  |    (stdio JSON-RPC)       |                   |    (esegue comandi,       |
+  |         |                 |                   |     legge file, ecc.)     |
+  |         v                 |                   |         ^                 |
+  |   lokifix-mcp.exe         |                   |         |                 |
+  |    +------------------+   |                   |   +------------------+    |
+  |    | WebSocket Server |   |                   |   | WebSocket Client |    |
+  |    | Auth Manager     |   |                   |   | Audit Logger     |    |
+  |    | MCP Protocol     |   |                   |   | Danger Detector  |    |
+  |    +--------+---------+   |                   |   +--------+---------+    |
+  |             |             |                   |            |              |
+  +-------------|-------------+                   +------------|-------------+
+                |                                              |
+                v                                              |
+        +---------------+          INTERNET            +-------+-------+
+        |  cloudflared  | &lt;-- tunnel TLS criptato --&gt; |  connessione  |
+        |  (tunnel)     |    (*.trycloudflare.com)     |  in uscita    |
+        +---------------+                              +---------------+
+        </pre>
+    </div>
+
+    <h3>Flusso dei dati passo-passo</h3>
+
+    <div class="flow">
+        <div class="flow-step">
+            <div class="flow-line">
+                <div class="flow-dot">1</div>
+                <div class="flow-connector"></div>
+            </div>
+            <div class="flow-content">
+                <strong>Tu scrivi a Claude Code</strong>
+                Esempio: "Controlla i servizi in esecuzione sul PC remoto"
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-line">
+                <div class="flow-dot">2</div>
+                <div class="flow-connector"></div>
+            </div>
+            <div class="flow-content">
+                <strong>Claude Code chiama il tool MCP <code>remote_services</code></strong>
+                La richiesta arriva a <code>lokifix-mcp.exe</code> tramite il protocollo stdio (JSON-RPC)
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-line">
+                <div class="flow-dot">3</div>
+                <div class="flow-connector"></div>
+            </div>
+            <div class="flow-content">
+                <strong>lokifix-mcp.exe impacchetta la richiesta</strong>
+                Crea un "envelope" (busta) con ID univoco, tipo "request", timestamp, e la invia via WebSocket
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-line">
+                <div class="flow-dot">4</div>
+                <div class="flow-connector"></div>
+            </div>
+            <div class="flow-content">
+                <strong>La richiesta viaggia attraverso il tunnel Cloudflare</strong>
+                Criptata TLS, passa per i server Cloudflare e arriva al PC remoto
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-line">
+                <div class="flow-dot">5</div>
+                <div class="flow-connector"></div>
+            </div>
+            <div class="flow-content">
+                <strong>lokifix-agent.exe riceve la richiesta</strong>
+                L'agente esegue il comando (in questo caso, <code>Get-Service</code> in PowerShell)
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-line">
+                <div class="flow-dot">6</div>
+                <div class="flow-connector"></div>
+            </div>
+            <div class="flow-content">
+                <strong>Il risultato torna indietro</strong>
+                Stesso percorso al contrario: agent &rarr; tunnel &rarr; mcp &rarr; Claude Code
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-line">
+                <div class="flow-dot">7</div>
+            </div>
+            <div class="flow-content">
+                <strong>Claude Code ti mostra il risultato</strong>
+                E puo anche analizzarlo, trovare anomalie, e suggerirti azioni correttive
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. COMPONENTI -->
+<div class="section" id="componenti">
+    <h2><span class="num">3</span> I Due Componenti</h2>
+
+    <div class="two-col">
+        <div class="col-card">
+            <h4>lokifix-mcp.exe <span class="badge badge-blue">Lato Operatore</span></h4>
+            <p>Il "ponte" tra Claude Code e il PC remoto. Si avvia automaticamente quando Claude Code ha bisogno dei tool remoti.</p>
+            <ul>
+                <li>Comunica con Claude Code via <strong>stdio</strong> (standard input/output)</li>
+                <li>Gestisce l'autenticazione (codici e token)</li>
+                <li>Avvia il tunnel Cloudflare</li>
+                <li>Traduce le richieste MCP in messaggi WebSocket</li>
+                <li>Genera il codice di connessione da condividere</li>
+            </ul>
+        </div>
+        <div class="col-card">
+            <h4>lokifix-agent.exe <span class="badge badge-green">Lato Remoto</span></h4>
+            <p>L'esecutore sul PC del cliente. Un singolo file <code>.exe</code> portabile, nessuna dipendenza.</p>
+            <ul>
+                <li>Si connette al tunnel in <strong>uscita</strong> (nessuna porta da aprire)</li>
+                <li>Esegue comandi PowerShell/CMD</li>
+                <li>Gestisce operazioni su file</li>
+                <li>Raccoglie info di sistema</li>
+                <li><strong>Chiede conferma</strong> per operazioni pericolose</li>
+                <li>Scrive audit log di ogni azione</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>cloudflared.exe <span class="badge badge-orange">Componente di rete</span></h3>
+    <p><code>cloudflared</code> e uno strumento ufficiale di Cloudflare che crea un <strong>tunnel sicuro</strong> tra i due PC. Non serve avere un account Cloudflare &mdash; il servizio "Quick Tunnels" e gratuito e assegna un URL temporaneo tipo <code>abc123.trycloudflare.com</code>.</p>
+
+    <div class="alert alert-success">
+        <span class="alert-icon">&#x2705;</span>
+        <div>
+            <strong>Perche Cloudflare?</strong> Perche il PC remoto non deve aprire porte o configurare il firewall. La connessione e sempre in uscita, esattamente come quando navighi su un sito web. Funziona anche dietro NAT, proxy aziendali, e reti ristrette.
+        </div>
+    </div>
+</div>
+
+<!-- 4. INSTALLAZIONE -->
+<div class="section" id="installazione">
+    <h2><span class="num">4</span> Installazione e Setup</h2>
+
+    <h3>Prerequisiti</h3>
+    <table>
+        <tr><th>Requisito</th><th>Dove</th><th>Note</th></tr>
+        <tr><td><strong>Go 1.21+</strong></td><td>PC Operatore</td><td>Per compilare i due eseguibili</td></tr>
+        <tr><td><strong>Claude Code</strong></td><td>PC Operatore</td><td>CLI o estensione IDE</td></tr>
+        <tr><td><strong>Connessione Internet</strong></td><td>Entrambi i PC</td><td>Per il tunnel Cloudflare</td></tr>
+        <tr><td><strong>Windows</strong></td><td>PC Remoto</td><td>L'agente usa comandi Windows/PowerShell</td></tr>
+    </table>
+
+    <h3>Setup automatico (consigliato)</h3>
+    <p>Apri PowerShell nella cartella del progetto ed esegui:</p>
+    <pre>.\setup.ps1</pre>
+
+    <p>Lo script fa tutto automaticamente:</p>
+    <ol>
+        <li>Verifica che Go sia installato</li>
+        <li>Compila <code>lokifix-agent.exe</code> e <code>lokifix-mcp.exe</code> nella cartella <code>build/</code></li>
+        <li>Scarica <code>cloudflared.exe</code> da GitHub (se non gia presente)</li>
+        <li>Configura Claude Code registrando il server MCP</li>
+        <li>Imposta i permessi per i 16 tool remoti</li>
+    </ol>
+
+    <h3>Setup manuale (se necessario)</h3>
+
+    <p><strong>Passo 1 &mdash; Compila:</strong></p>
+    <pre>go build -ldflags="-s -w" -o build/lokifix-agent.exe ./cmd/lokifix-agent/
+go build -ldflags="-s -w" -o build/lokifix-mcp.exe ./cmd/lokifix-mcp/</pre>
+
+    <p><strong>Passo 2 &mdash; Registra in Claude Code CLI:</strong></p>
+    <pre>claude mcp add lokifix-remote -- "C:\percorso\build\lokifix-mcp.exe"</pre>
+
+    <div class="alert alert-warning">
+        <span class="alert-icon">&#x26A0;&#xFE0F;</span>
+        <div>
+            <strong>Attenzione:</strong> Per Claude Code CLI usa il comando <code>claude mcp add</code>. Il file <code>claude_desktop_config.json</code> funziona solo per Claude Desktop (app grafica), non per la CLI.
+        </div>
+    </div>
+
+    <h3>Struttura delle cartelle dopo il setup</h3>
+    <pre>
+LokiFix/
+  build/
+    lokifix-agent.exe    &larr; da copiare sul PC remoto
+    lokifix-mcp.exe      &larr; resta sul tuo PC (gestito da Claude Code)
+    cloudflared.exe      &larr; scaricato automaticamente
+  cmd/
+    lokifix-agent/       &larr; codice sorgente dell'agente
+    lokifix-mcp/         &larr; codice sorgente del server MCP
+  internal/              &larr; moduli interni del progetto
+  setup.ps1              &larr; script di installazione
+    </pre>
+</div>
+
+<!-- 5. CONNESSIONE -->
+<div class="section" id="connessione">
+    <h2><span class="num">5</span> Come Collegarsi al PC Remoto</h2>
+
+    <h3>Panoramica del processo</h3>
+    <div class="diagram">
+        <pre>
+OPERATORE                                         CLIENTE
+=========                                         =======
+
+1. Avvia Claude Code
+   Claude Code avvia lokifix-mcp.exe
+   lokifix-mcp avvia cloudflared
+   lokifix-mcp genera codice: "AB3XK7"
+                                                  2. Riceve lokifix-agent.exe
+                                                     (via email, USB, share di rete)
+
+                                                  3. Avvia lokifix-agent.exe
+                                                     Inserisce il codice: "AB3XK7"
+                      &lt;--- connessione ---&gt;
+                                                  4. Agente connesso!
+5. Claude Code puo operare
+   sul PC remoto
+        </pre>
+    </div>
+
+    <h3>Step-by-step dettagliato</h3>
+
+    <h4>Sul tuo PC (operatore):</h4>
+    <ol>
+        <li>Apri Claude Code (CLI o IDE)</li>
+        <li>Usa un qualsiasi tool remoto, ad esempio chiedi a Claude: <em>"Mostrami le info di sistema del PC remoto"</em></li>
+        <li>Claude Code avvia automaticamente <code>lokifix-mcp.exe</code></li>
+        <li>Il server genera un <strong>codice di connessione</strong> di 6 caratteri (es. <code>AB3XK7</code>)</li>
+        <li>Il codice viene anche salvato in <code>~/lokifix-connection.txt</code></li>
+        <li>Comunica questo codice al cliente (telefono, chat, email)</li>
+    </ol>
+
+    <h4>Sul PC remoto (cliente):</h4>
+    <ol>
+        <li>Copia <code>lokifix-agent.exe</code> sul PC (no installazione necessaria)</li>
+        <li>Fai doppio clic per avviarlo</li>
+        <li>Inserisci il codice di connessione quando richiesto</li>
+        <li>L'agente si connette &mdash; vedrai il messaggio di conferma</li>
+    </ol>
+
+    <div class="alert alert-info">
+        <span class="alert-icon">&#x2139;&#xFE0F;</span>
+        <div>
+            <strong>Cosa vede il cliente:</strong> Una finestra di terminale con un banner LokiFix, un prompt per inserire il codice, e poi un log in tempo reale di tutte le operazioni eseguite. Il cliente puo vedere tutto quello che fai.
+        </div>
+    </div>
+
+    <h3>Il codice di connessione nel dettaglio</h3>
+    <p>Il codice di connessione (es. <code>AB3XK7</code>) e in realta un <strong>contenitore codificato</strong> che include:</p>
+    <ul>
+        <li>L'<strong>URL del tunnel</strong> Cloudflare (dove connettersi)</li>
+        <li>Un <strong>token di autenticazione</strong> di 32 byte (la "password")</li>
+    </ul>
+    <p>Il formato interno e: <code>URL_websocket|token_base64</code>, il tutto codificato in base64-url.</p>
+    <p>Il codice di connessione <strong>scade dopo 15 minuti</strong>. Se non viene usato entro quel tempo, ne va generato uno nuovo.</p>
+
+    <div class="alert alert-warning">
+        <span class="alert-icon">&#x26A0;&#xFE0F;</span>
+        <div>
+            <strong>Alfabeto speciale:</strong> I codici usano solo <code>ABCDEFGHJKLMNPQRSTUVWXYZ23456789</code> (32 caratteri). Sono esclusi <code>0</code>, <code>O</code>, <code>1</code>, <code>I</code> per evitare confusione quando li detti al telefono.
+        </div>
+    </div>
+</div>
+
+<!-- 6. AUTENTICAZIONE -->
+<div class="section" id="autenticazione">
+    <h2><span class="num">6</span> Sistema di Autenticazione</h2>
+
+    <p>LokiFix usa un sistema a <strong>due livelli</strong> per l'autenticazione:</p>
+
+    <div class="two-col">
+        <div class="col-card">
+            <h4>Livello 1: Codice di Connessione <span class="badge badge-red">Monouso</span></h4>
+            <ul>
+                <li>Generato all'avvio del server MCP</li>
+                <li>6 caratteri alfanumerici</li>
+                <li>Scade dopo <strong>15 minuti</strong></li>
+                <li>Si usa <strong>una sola volta</strong></li>
+                <li>Contiene URL del tunnel + token</li>
+            </ul>
+        </div>
+        <div class="col-card">
+            <h4>Livello 2: Session Token <span class="badge badge-green">Persistente</span></h4>
+            <ul>
+                <li>Generato dopo la prima autenticazione</li>
+                <li>Token di 32 byte random</li>
+                <li>Dura <strong>24 ore</strong></li>
+                <li>Permette la <strong>riconnessione automatica</strong></li>
+                <li>Nessun bisogno di reinserire il codice</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>Flusso di autenticazione</h3>
+
+    <div class="diagram">
+        <pre>
+PRIMA CONNESSIONE:                        RICONNESSIONE:
+
+Agent invia:                              Agent invia:
+  { token: "abc123..." }                    { sessionToken: "xyz789..." }
+         |                                          |
+         v                                          v
+  Server verifica il token                 Server verifica il sessionToken
+  del codice di connessione                (confronto costante nel tempo)
+         |                                          |
+         v                                          v
+  OK! Genera sessionToken                  OK! Connessione ripristinata
+  e lo invia all'agent                     (nessun nuovo token generato)
+         |
+         v
+  Agent salva il sessionToken
+  per le riconnessioni future
+        </pre>
+    </div>
+
+    <div class="alert alert-success">
+        <span class="alert-icon">&#x2705;</span>
+        <div>
+            <strong>Riconnessione automatica:</strong> Se la connessione cade (rete instabile, PC in sleep, ecc.), l'agente riprova automaticamente fino a 5 volte con attesa crescente (2s, 4s, 6s, 8s, 10s). Usa il session token, quindi non serve reinserire il codice.
+        </div>
+    </div>
+
+    <h3>Sicurezza dell'autenticazione</h3>
+    <ul>
+        <li><strong>Confronto a tempo costante</strong> &mdash; Il server confronta i token con <code>subtle.ConstantTimeCompare</code>, che previene attacchi di timing (non si puo indovinare il token misurando il tempo di risposta)</li>
+        <li><strong>Token generati con crypto/rand</strong> &mdash; I token usano il generatore di numeri casuali crittograficamente sicuro del sistema operativo</li>
+        <li><strong>Nessuna password memorizzata</strong> &mdash; I token esistono solo in memoria, mai scritti su disco in chiaro</li>
+        <li><strong>Timeout di 5 secondi</strong> &mdash; Se l'agente non si autentica entro 5 secondi dalla connessione WebSocket, viene disconnesso</li>
+    </ul>
+</div>
+
+<!-- 7. TOOL REMOTI -->
+<div class="section" id="tools">
+    <h2><span class="num">7</span> Tool Remoti Disponibili</h2>
+
+    <p>Quando l'agente e connesso, Claude Code ha accesso a <strong>17 tool</strong> (16 remoti + 1 locale):</p>
+
+    <h3>Comandi e Shell</h3>
+    <table>
+        <tr><th>Tool</th><th>Cosa fa</th><th>Esempio d'uso</th></tr>
+        <tr>
+            <td><code>remote_shell</code></td>
+            <td>Esegue comandi PowerShell o CMD sul PC remoto</td>
+            <td><code>Get-Process | Sort CPU -Desc | Select -First 10</code></td>
+        </tr>
+    </table>
+
+    <div class="alert alert-info">
+        <span class="alert-icon">&#x2139;&#xFE0F;</span>
+        <div>
+            <strong>Default:</strong> I comandi vengono eseguiti in PowerShell con i flag <code>-NoProfile -NonInteractive -ExecutionPolicy Bypass</code>. Timeout di default: 120 secondi.
+        </div>
+    </div>
+
+    <h3>Operazioni su File</h3>
+    <table>
+        <tr><th>Tool</th><th>Cosa fa</th><th>Parametri principali</th></tr>
+        <tr>
+            <td><code>remote_file_read</code></td>
+            <td>Legge un file con numeri di riga</td>
+            <td><code>path</code>, <code>offset</code>, <code>limit</code> (max 2MB per riga)</td>
+        </tr>
+        <tr>
+            <td><code>remote_file_write</code></td>
+            <td>Scrive/crea un file (sovrascrive se esiste)</td>
+            <td><code>path</code>, <code>content</code> (crea cartelle automaticamente)</td>
+        </tr>
+        <tr>
+            <td><code>remote_file_edit</code></td>
+            <td>Modifica un file sostituendo una stringa</td>
+            <td><code>path</code>, <code>old_string</code>, <code>new_string</code></td>
+        </tr>
+        <tr>
+            <td><code>remote_file_list</code></td>
+            <td>Elenca il contenuto di una directory</td>
+            <td><code>path</code> (mostra nome, tipo, dimensione, data)</td>
+        </tr>
+        <tr>
+            <td><code>remote_file_delete</code></td>
+            <td>Elimina un file o una cartella</td>
+            <td><code>path</code> (eliminazione ricorsiva per cartelle)</td>
+        </tr>
+    </table>
+
+    <h3>Ricerca</h3>
+    <table>
+        <tr><th>Tool</th><th>Cosa fa</th><th>Parametri principali</th></tr>
+        <tr>
+            <td><code>remote_glob</code></td>
+            <td>Cerca file per pattern (wildcard)</td>
+            <td><code>pattern</code> (es. <code>C:\Users\*\*.log</code>)</td>
+        </tr>
+        <tr>
+            <td><code>remote_grep</code></td>
+            <td>Cerca testo dentro i file (regex)</td>
+            <td><code>pattern</code>, <code>path</code>, <code>glob</code> (filtro file)</td>
+        </tr>
+    </table>
+
+    <h3>Informazioni di Sistema</h3>
+    <table>
+        <tr><th>Tool</th><th>Cosa fa</th><th>Info restituite</th></tr>
+        <tr>
+            <td><code>remote_sysinfo</code></td>
+            <td>Info generali del sistema</td>
+            <td>Hostname, OS, CPU, RAM totale/libera, uptime</td>
+        </tr>
+        <tr>
+            <td><code>remote_processes</code></td>
+            <td>Processi in esecuzione</td>
+            <td>Top 50 per consumo CPU (nome, PID, CPU%, memoria)</td>
+        </tr>
+        <tr>
+            <td><code>remote_services</code></td>
+            <td>Servizi Windows</td>
+            <td>Nome, stato (Running/Stopped), tipo di avvio</td>
+        </tr>
+        <tr>
+            <td><code>remote_registry</code></td>
+            <td>Legge il registro di Windows</td>
+            <td>Chiavi e valori di una path del registro</td>
+        </tr>
+        <tr>
+            <td><code>remote_netinfo</code></td>
+            <td>Interfacce di rete</td>
+            <td>Adattatori, IP, stato, connessioni attive</td>
+        </tr>
+        <tr>
+            <td><code>remote_env_vars</code></td>
+            <td>Variabili d'ambiente</td>
+            <td>Tutte le variabili d'ambiente del sistema</td>
+        </tr>
+        <tr>
+            <td><code>remote_installed_software</code></td>
+            <td>Software installato</td>
+            <td>Nome, versione, editore (da registro Windows)</td>
+        </tr>
+        <tr>
+            <td><code>remote_event_log</code></td>
+            <td>Event Log di Windows</td>
+            <td>Log System/Application/Security con filtri</td>
+        </tr>
+    </table>
+
+    <h3>Tool Locale</h3>
+    <table>
+        <tr><th>Tool</th><th>Cosa fa</th><th>Note</th></tr>
+        <tr>
+            <td><code>remote_connection_status</code></td>
+            <td>Stato della connessione con l'agente</td>
+            <td>Non richiede agente connesso. Mostra IP, ora connessione, stato.</td>
+        </tr>
+    </table>
+</div>
+
+<!-- 8. SICUREZZA -->
+<div class="section" id="sicurezza">
+    <h2><span class="num">8</span> Sicurezza e Protezioni</h2>
+
+    <p>LokiFix implementa molteplici livelli di sicurezza per proteggere il PC remoto:</p>
+
+    <h3>Rilevamento Operazioni Pericolose</h3>
+    <p>L'agente analizza ogni richiesta prima di eseguirla. Se rileva un'operazione potenzialmente pericolosa, <strong>chiede conferma all'utente sul PC remoto</strong>:</p>
+
+    <div class="diagram">
+        <pre style="text-align: center; font-weight: bold;">
++======================================================+
+|  !! OPERAZIONE PERICOLOSA - CONFERMA RICHIESTA       |
++======================================================+
+|  Azione:    SHELL_EXEC                               |
+|  Dettaglio: Remove-Item C:\Users\mario\Desktop\*     |
+|  Motivo:    Pattern 'Remove-Item' rilevato           |
++======================================================+
+                  Approvi? [s/N]: _
+        </pre>
+    </div>
+
+    <h4>Comandi shell considerati pericolosi:</h4>
+    <table>
+        <tr><th>Categoria</th><th>Pattern rilevati</th></tr>
+        <tr><td>Eliminazione</td><td><code>rm</code>, <code>del</code>, <code>rmdir</code>, <code>Remove-Item</code></td></tr>
+        <tr><td>Formattazione disco</td><td><code>format</code>, <code>diskpart</code>, <code>cipher /w</code></td></tr>
+        <tr><td>Controllo servizi</td><td><code>Stop-Service</code>, <code>Stop-Process</code>, <code>Restart-</code></td></tr>
+        <tr><td>Registro</td><td><code>reg delete</code>, <code>reg add</code>, <code>Set-ItemProperty</code></td></tr>
+        <tr><td>Sistema</td><td><code>shutdown</code>, <code>taskkill</code>, <code>bcdedit</code>, <code>sfc</code>, <code>dism</code></td></tr>
+        <tr><td>Rete</td><td><code>Disable-NetAdapter</code></td></tr>
+    </table>
+
+    <h4>Path di file considerati sensibili:</h4>
+    <table>
+        <tr><th>Categoria</th><th>Path protette</th></tr>
+        <tr><td>Sistema Windows</td><td><code>C:\Windows\</code>, <code>\System32\</code>, <code>\SysWOW64\</code></td></tr>
+        <tr><td>Programmi</td><td><code>C:\Program Files\</code>, <code>C:\ProgramData\</code></td></tr>
+        <tr><td>File critici</td><td><code>.exe</code>, <code>.dll</code>, <code>.sys</code>, <code>.bat</code>, <code>.ps1</code>, <code>.reg</code>, <code>hosts</code></td></tr>
+    </table>
+
+    <h3>Crittografia</h3>
+    <ul>
+        <li>Tutto il traffico passa attraverso un tunnel <strong>TLS</strong> di Cloudflare</li>
+        <li>La connessione e <strong>criptata end-to-end</strong></li>
+        <li>Nessun certificato da gestire manualmente</li>
+        <li>L'URL del tunnel e casuale e cambia ad ogni sessione</li>
+    </ul>
+
+    <h3>Superficie di attacco minima</h3>
+    <ul>
+        <li><strong>Nessuna porta aperta</strong> sul PC remoto &mdash; la connessione e solo in uscita</li>
+        <li><strong>Nessuna credenziale salvata</strong> &mdash; solo token in memoria</li>
+        <li><strong>Codice monouso</strong> &mdash; valido solo 15 minuti</li>
+        <li><strong>20 richieste contemporanee max</strong> &mdash; semaforo che limita l'esecuzione parallela</li>
+    </ul>
+
+    <div class="alert alert-danger">
+        <span class="alert-icon">&#x1F6A8;</span>
+        <div>
+            <strong>Regola d'oro:</strong> Il PC remoto ha sempre l'ultima parola. L'utente sul PC remoto puo rifiutare qualsiasi operazione pericolosa, e puo chiudere l'agente in qualsiasi momento con Ctrl+C.
+        </div>
+    </div>
+</div>
+
+<!-- 9. AUDIT -->
+<div class="section" id="audit">
+    <h2><span class="num">9</span> Audit Log e Tracciabilita</h2>
+
+    <p>Ogni azione eseguita da LokiFix viene registrata in un <strong>audit log a prova di manomissione</strong>.</p>
+
+    <h3>Come funziona l'audit log</h3>
+    <p>Ogni voce del log include un <strong>hash SHA-256</strong> che incorpora l'hash della voce precedente, creando una <strong>catena</strong> (come una mini-blockchain). Se qualcuno modifica una voce, la catena si spezza e la manomissione e rilevabile.</p>
+
+    <div class="diagram">
+        <pre>
+Voce 1                  Voce 2                  Voce 3
++------------------+    +------------------+    +------------------+
+| hash: abc123     |    | hash: def456     |    | hash: ghi789     |
+| prev: GENESIS    |--->| prev: abc123     |--->| prev: def456     |
+| azione: SYSINFO  |    | azione: SHELL    |    | azione: FILE_READ|
+| risultato: OK    |    | risultato: OK    |    | risultato: OK    |
++------------------+    +------------------+    +------------------+
+        </pre>
+    </div>
+
+    <h3>Dove si trovano i log</h3>
+    <table>
+        <tr><th>PC</th><th>Posizione</th><th>Nome file</th></tr>
+        <tr><td>Operatore</td><td><code>~/lokifix-logs/</code></td><td><code>lokifix-OPERATOR-{session}-{timestamp}.log</code></td></tr>
+        <tr><td>Remoto</td><td>Vicino a <code>lokifix-agent.exe</code> in <code>lokifix-logs/</code></td><td><code>lokifix-REMOTE-{session}-{timestamp}.log</code></td></tr>
+    </table>
+
+    <h3>Cosa viene registrato</h3>
+    <ul>
+        <li>Ogni esecuzione di tool (comando, file letto/scritto, info richieste)</li>
+        <li>Le conferme dell'utente (APPROVED / DENIED) per operazioni pericolose</li>
+        <li>Inizio e fine sessione</li>
+        <li>Errori di connessione</li>
+    </ul>
+
+    <h3>Report di sessione</h3>
+    <p>Quando l'agente si disconnette, viene generato automaticamente un <strong>report HTML</strong> con il riepilogo della sessione: quante operazioni eseguite, di che tipo, eventuali errori.</p>
+</div>
+
+<!-- 10. TROUBLESHOOTING -->
+<div class="section" id="troubleshooting">
+    <h2><span class="num">10</span> Troubleshooting</h2>
+
+    <h3>Problemi comuni e soluzioni</h3>
+
+    <table>
+        <tr><th style="width: 35%">Problema</th><th>Causa probabile</th><th>Soluzione</th></tr>
+        <tr>
+            <td>L'agente non si connette</td>
+            <td>Codice scaduto (>15 min)</td>
+            <td>Riavvia lokifix-mcp per generare un nuovo codice</td>
+        </tr>
+        <tr>
+            <td>Errore 502 dal tunnel</td>
+            <td>Istanze precedenti di cloudflared ancora attive</td>
+            <td>Chiudi tutti i processi <code>cloudflared</code> e <code>lokifix-mcp</code>, poi riavvia</td>
+        </tr>
+        <tr>
+            <td>Claude Code non trova i tool remoti</td>
+            <td>MCP non registrato correttamente</td>
+            <td>Esegui <code>claude mcp add lokifix-remote -- "percorso\lokifix-mcp.exe"</code></td>
+        </tr>
+        <tr>
+            <td>L'agente si disconnette spesso</td>
+            <td>Rete instabile</td>
+            <td>L'agente riprova automaticamente (5 tentativi). Se persiste, verifica la connessione Internet del PC remoto</td>
+        </tr>
+        <tr>
+            <td>Comandi lenti sul remoto</td>
+            <td>Timeout di default troppo breve</td>
+            <td>I comandi hanno timeout di 120s. Per comandi piu lunghi, specificare un timeout maggiore</td>
+        </tr>
+        <tr>
+            <td>Errore "operazione pericolosa" non voluto</td>
+            <td>Pattern di sicurezza troppo ampio</td>
+            <td>L'utente sul PC remoto deve semplicemente approvare con <code>s</code>. Il pattern e conservativo per sicurezza</td>
+        </tr>
+        <tr>
+            <td>Setup fallisce su "Go not found"</td>
+            <td>Go non installato o non nel PATH</td>
+            <td>Installa Go da <code>go.dev</code> e riavvia il terminale</td>
+        </tr>
+    </table>
+
+    <h3>Comandi utili per diagnostica</h3>
+    <pre># Verifica che lokifix-mcp sia registrato
+claude mcp list
+
+# Verifica che i file esistano
+ls build/lokifix-mcp.exe
+ls build/lokifix-agent.exe
+
+# Testa la compilazione
+go build ./...
+
+# Esegui i test
+go test ./... -v
+
+# Cerca processi lokifix attivi (su Windows)
+Get-Process | Where-Object { $_.ProcessName -like "*lokifix*" -or $_.ProcessName -like "*cloudflared*" }
+
+# Termina processi vecchi
+Stop-Process -Name "lokifix-mcp" -Force -ErrorAction SilentlyContinue
+Stop-Process -Name "cloudflared" -Force -ErrorAction SilentlyContinue</pre>
+
+    <h3>Variabili d'ambiente utili</h3>
+    <table>
+        <tr><th>Variabile</th><th>Scopo</th><th>Esempio</th></tr>
+        <tr>
+            <td><code>LOKIFIX_TUNNEL_URL</code></td>
+            <td>Forza un URL tunnel specifico (bypass cloudflared)</td>
+            <td><code>wss://mio-tunnel.example.com</code></td>
+        </tr>
+    </table>
+
+    <h3>Flag di avvio</h3>
+    <table>
+        <tr><th>Flag</th><th>Componente</th><th>Scopo</th></tr>
+        <tr>
+            <td><code>--no-tunnel</code></td>
+            <td>lokifix-mcp</td>
+            <td>Disabilita Cloudflare, usa WebSocket locale</td>
+        </tr>
+        <tr>
+            <td><code>--standalone</code></td>
+            <td>lokifix-mcp</td>
+            <td>Solo WebSocket server, nessun MCP</td>
+        </tr>
+    </table>
+</div>
+
+<!-- RIEPILOGO FINALE -->
+<div class="section">
+    <h2><span class="num">&#x2713;</span> Riepilogo</h2>
+
+    <p>LokiFix e uno strumento pensato per i tecnici IT che vogliono sfruttare la potenza di Claude Code per assistere i clienti da remoto. Ecco i punti chiave:</p>
+
+    <ol>
+        <li><strong>Due eseguibili</strong>: <code>lokifix-mcp.exe</code> (sul tuo PC) e <code>lokifix-agent.exe</code> (sul PC remoto)</li>
+        <li><strong>Connessione semplice</strong>: condividi un codice di 6 caratteri, l'agente si connette</li>
+        <li><strong>Tunnel sicuro</strong>: tutto passa per Cloudflare, criptato, senza porte da aprire</li>
+        <li><strong>16 tool remoti</strong>: comandi shell, file, sistema, servizi, registro, rete, event log</li>
+        <li><strong>Protezione integrata</strong>: operazioni pericolose richiedono conferma locale</li>
+        <li><strong>Audit completo</strong>: ogni azione registrata con catena hash a prova di manomissione</li>
+        <li><strong>Riconnessione automatica</strong>: session token per 24h, nessun bisogno di nuovo codice</li>
+    </ol>
+
+    <div class="alert alert-success">
+        <span class="alert-icon">&#x1F4A1;</span>
+        <div>
+            <strong>Suggerimento:</strong> La prima volta, prova a collegare due PC nella tua rete locale. Avvia l'agente, inserisci il codice, e chiedi a Claude Code di mostrarti le info di sistema del PC remoto. Vedrai l'intero flusso in azione.
+        </div>
+    </div>
+</div>
+
+</div><!-- /container -->
+
+<div class="footer">
+    <p><strong>LokiFix Remote Agent v1.1</strong> &mdash; Guida tecnica generata il 10 aprile 2026</p>
+    <p>Powered by Claude Code (Anthropic)</p>
+</div>
+
+</body>
+</html>
