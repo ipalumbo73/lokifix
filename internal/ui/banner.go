@@ -15,34 +15,71 @@ func PrintBanner() {
 
 func printColorBanner() {
 	t := activeTheme
+	w := 42 // inner width
+
+	title := "   <  L . O . K . I . F . I . X  >   "
+	sep := "   ----------------------------------   "
+	ver := fmt.Sprintf("       Remote Agent  v%s", version)
+	powered := "    Powered by Claude - Anthropic"
 
 	fmt.Println()
-	fmt.Printf("  %s╔════════════════════════════════════════╗%s\n", t.Green, t.Reset)
-	fmt.Printf("  %s║%s                                        %s║%s\n", t.Green, t.Reset, t.Green, t.Reset)
-	fmt.Printf("  %s║%s    %s◈%s  %sL · O · K · I · F · I · X%s  %s◈%s    %s║%s\n",
-		t.Green, t.Reset, t.Gold, t.Reset, t.Bold+t.Gold, t.Reset, t.Gold, t.Reset, t.Green, t.Reset)
-	fmt.Printf("  %s║%s    %s─────────────────────────────────%s    %s║%s\n",
-		t.Green, t.Reset, t.Gray, t.Reset, t.Green, t.Reset)
-	fmt.Printf("  %s║%s       Remote Agent  %sv%s%s             %s║%s\n",
-		t.Green, t.Reset, t.White, version, t.Reset, t.Green, t.Reset)
-	fmt.Printf("  %s║%s    %sPowered by Claude · Anthropic%s      %s║%s\n",
-		t.Green, t.Reset, t.Cyan, t.Reset, t.Green, t.Reset)
-	fmt.Printf("  %s║%s                                        %s║%s\n", t.Green, t.Reset, t.Green, t.Reset)
-	fmt.Printf("  %s╚════════════════════════════════════════╝%s\n", t.Green, t.Reset)
+	fmt.Printf("  %s+%s+%s\n", t.Green, pad('-', w), t.Reset)
+	fmt.Printf("  %s|%s%s%s|%s\n", t.Green, t.Reset, pad(' ', w), t.Green, t.Reset)
+	fmt.Printf("  %s|%s%s%s%s%s|%s\n", t.Green, t.Reset, t.Bold+t.Gold, centerPad(title, w), t.Reset+t.Green, t.Reset, "")
+	fmt.Printf("  %s|%s%s%s%s%s|%s\n", t.Green, t.Reset, t.Gray, centerPad(sep, w), t.Reset+t.Green, t.Reset, "")
+	fmt.Printf("  %s|%s%s%s%s%s|%s\n", t.Green, t.Reset, t.White, centerPad(ver, w), t.Reset+t.Green, t.Reset, "")
+	fmt.Printf("  %s|%s%s%s%s%s|%s\n", t.Green, t.Reset, t.Cyan, centerPad(powered, w), t.Reset+t.Green, t.Reset, "")
+	fmt.Printf("  %s|%s%s%s|%s\n", t.Green, t.Reset, pad(' ', w), t.Green, t.Reset)
+	fmt.Printf("  %s+%s+%s\n", t.Green, pad('-', w), t.Reset)
 	fmt.Println()
 }
 
 func printPlainBanner() {
+	w := 42
+
+	title := "   <  L . O . K . I . F . I . X  >   "
+	sep := "   ----------------------------------   "
+	ver := fmt.Sprintf("       Remote Agent  v%s", version)
+	powered := "    Powered by Claude - Anthropic"
+
 	fmt.Println()
-	fmt.Println("  ╔════════════════════════════════════════╗")
-	fmt.Println("  ║                                        ║")
-	fmt.Println("  ║    ◈  L · O · K · I · F · I · X  ◈    ║")
-	fmt.Println("  ║    ─────────────────────────────────    ║")
-	fmt.Printf("  ║       Remote Agent  v%s             ║\n", version)
-	fmt.Println("  ║    Powered by Claude · Anthropic      ║")
-	fmt.Println("  ║                                        ║")
-	fmt.Println("  ╚════════════════════════════════════════╝")
+	fmt.Printf("  +%s+\n", pad('-', w))
+	fmt.Printf("  |%s|\n", pad(' ', w))
+	fmt.Printf("  |%s|\n", centerPad(title, w))
+	fmt.Printf("  |%s|\n", centerPad(sep, w))
+	fmt.Printf("  |%s|\n", centerPad(ver, w))
+	fmt.Printf("  |%s|\n", centerPad(powered, w))
+	fmt.Printf("  |%s|\n", pad(' ', w))
+	fmt.Printf("  +%s+\n", pad('-', w))
 	fmt.Println()
+}
+
+// pad returns a string of n copies of character c.
+func pad(c byte, n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = c
+	}
+	return string(b)
+}
+
+// padRight pads a string with spaces to exactly width characters.
+func padRight(s string, width int) string {
+	if len(s) >= width {
+		return s[:width]
+	}
+	return s + pad(' ', width-len(s))
+}
+
+// centerPad centers a string within the given width, padding both sides with spaces.
+func centerPad(s string, width int) string {
+	if len(s) >= width {
+		return s[:width]
+	}
+	total := width - len(s)
+	left := total / 2
+	right := total - left
+	return pad(' ', left) + s + pad(' ', right)
 }
 
 // PrintConnectionHeader prints the status header after successful connection.
